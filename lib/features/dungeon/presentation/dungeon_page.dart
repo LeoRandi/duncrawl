@@ -18,11 +18,13 @@ import 'cardinal_drag.dart';
 import 'dungeon_board.dart';
 import 'dungeon_controller.dart';
 import 'dungeon_strings.dart';
+import '../../tutorial/presentation/tutorial_controller.dart';
 import 'movement_menu.dart';
 import 'opening_tutorial.dart';
 import 'game_menu_dialog.dart';
 import 'selection_frame.dart';
 import 'adventurer_information.dart';
+import '../../tutorial/presentation/tutorial_spotlight.dart';
 
 class DungeonPage extends StatefulWidget {
   final ValueNotifier<GameSettings> settings;
@@ -45,17 +47,30 @@ class DungeonPage extends StatefulWidget {
 class _DungeonPageState extends State<DungeonPage> {
   final _drag = CardinalDrag();
   final _controller = DungeonController(Dungeon.start(floor0.create()));
+  final _tutorial = TutorialController(OpeningTutorial.guide);
   late final _playerAnchorKey =
       widget.playerAnchorKey ??
       GlobalKey(debugLabel: 'player-transition-anchor');
   bool _isLeaving = false;
   final _movementMenuKey = GlobalKey(debugLabel: 'dialogue-menu-anchor');
+  final _portraitAnchorKey = GlobalKey(debugLabel: 'tutorial-portrait');
+  final _gridAnchorKey = GlobalKey(debugLabel: 'tutorial-grid');
+  final _stairsAnchorKey = GlobalKey(debugLabel: 'tutorial-stairs');
+  late final _tutorialAnchors = <Object, GlobalKey>{
+    DungeonTutorialTarget.character: _playerAnchorKey,
+    DungeonTutorialTarget.portrait: _portraitAnchorKey,
+    DungeonTutorialTarget.grid: _gridAnchorKey,
+    DungeonTutorialTarget.stairs: _stairsAnchorKey,
+    DungeonTutorialTarget.menu: _movementMenuKey,
+  };
   Timer? _tutorialTimer;
-  bool _isTutorialComplete = false;
+  bool _wasMoving = false;
 
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_onDungeonChanged);
+    _tutorial.addListener(_onTutorialChanged);
     _controller.pause();
     unawaited(_scheduleTutorial());
   }
@@ -82,13 +97,42 @@ class _DungeonPageState extends State<DungeonPage> {
       textSpeed: widget.settings.value.textSpeed,
     );
     if (mounted && !_isLeaving) {
-      setState(() => _isTutorialComplete = true);
+      _tutorial.signal(DungeonTutorialEvent.dialogueFinished);
+    }
+  }
+
+  void _onTutorialChanged() {
+    if (_tutorial.allowsInput) {
       _controller.resume();
+    } else {
+      _controller.pause();
+    }
+    setState(() {});
+  }
+
+  void _onDungeonChanged() {
+    final finishedMoving = _wasMoving && !_controller.isMoving;
+    _wasMoving = _controller.isMoving;
+    if (_controller.plan.path.isNotEmpty) {
+      _tutorial.signal(DungeonTutorialEvent.movementPreviewed);
+    }
+    if (finishedMoving) {
+      _tutorial.signal(DungeonTutorialEvent.movementFinished);
+    }
+  }
+
+  void _selectCharacter() {
+    if (!_tutorial.allows(DungeonTutorialControl.selection)) {
+      return;
+    }
+    _controller.selectCharacter();
+    if (_controller.isSelected) {
+      _tutorial.signal(DungeonTutorialEvent.characterSelected);
     }
   }
 
   Future<void> _returnToMainMenu(Offset closingCenter) async {
-    if (!_isTutorialComplete ||
+    if (!_tutorial.allows(DungeonTutorialControl.menu) ||
         _isLeaving ||
         IrisTransition.isRunning(context)) {
       return;
@@ -105,7 +149,8 @@ class _DungeonPageState extends State<DungeonPage> {
   }
 
   Future<void> _openMenu() async {
-    if (_controller.isPaused) {
+    if (!_tutorial.allows(DungeonTutorialControl.menu) ||
+        _controller.isPaused) {
       return;
     }
     _controller.pause();
@@ -166,149 +211,196 @@ class _DungeonPageState extends State<DungeonPage> {
   @override
   void dispose() {
     _tutorialTimer?.cancel();
+    _tutorial.removeListener(_onTutorialChanged);
+    _tutorial.dispose();
+    _controller.removeListener(_onDungeonChanged);
     _controller.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => InteractionGate(
-    enabled: _isTutorialComplete,
-    child: PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          _returnToMainMenu(IrisTransition.centerOf(_playerAnchorKey));
-        }
-      },
-      child: Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Padding(
-                padding: const EdgeInsets.all(DungeonTheme.pagePadding),
-                child: ListenableBuilder(
-                  listenable: _controller,
-                  builder: (context, child) => TickerMode(
-                    enabled: !_controller.isPaused,
-                    child: Column(
-                      children: [
-                        _DungeonHeader(
-                          floorNumber: _controller.dungeon.floor.number,
-                          adventurer: _controller.dungeon.adventurer,
-                          isSelected: _controller.isSelected,
-                          onSelect: _controller.selectCharacter,
-                          onMenu: _openMenu,
-                        ),
-                        const SizedBox(height: DungeonTheme.spacing * 2),
-                        Expanded(
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              // En pantallas bajas y anchas, el panel va al lado para conservar ambos.
-                              final sideMenu =
-                                  constraints.maxWidth >= 480 &&
-                                  constraints.maxHeight <
-                                      MovementMenu.minimumHeight * 2;
-                              final verticalBoardSize = math.min(
-                                constraints.maxWidth,
-                                math.min(
-                                  constraints.maxHeight * 0.64,
-                                  math.max(
-                                    0.0,
-                                    constraints.maxHeight -
-                                        MovementMenu.minimumHeight -
-                                        DungeonTheme.spacing * 2,
-                                  ),
-                                ),
-                              );
-                              final boardSize = sideMenu
-                                  ? math.min(
-                                      constraints.maxHeight,
-                                      constraints.maxWidth * 0.4,
-                                    )
-                                  : verticalBoardSize;
-                              final tileSize = boardSize / DungeonFloor.size;
-                              return Listener(
-                                onPointerCancel: (_) {
-                                  _drag.reset();
-                                  _controller.cancelDrag();
-                                },
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  dragStartBehavior: DragStartBehavior.down,
-                                  onPanStart: (_) {
-                                    _drag.reset();
-                                    _controller.beginDrag();
-                                  },
-                                  onPanEnd: (_) {
-                                    _drag.reset();
-                                    _controller.endDrag();
-                                  },
-                                  onPanCancel: () {
-                                    _drag.reset();
-                                    _controller.cancelDrag();
-                                  },
-                                  onPanUpdate: (details) {
-                                    final movement = _drag.add(
-                                      dx: details.delta.dx,
-                                      dy: details.delta.dy,
-                                      stepDistance:
-                                          math.max(tileSize, 16) *
-                                          widget
-                                              .settings
-                                              .value
-                                              .dragDistanceMultiplier,
-                                    );
-                                    if (movement == null) {
-                                      return;
-                                    }
+  Widget build(BuildContext context) => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, result) {
+      if (!didPop) {
+        _returnToMainMenu(IrisTransition.centerOf(_playerAnchorKey));
+      }
+    },
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        InteractionGate(
+          enabled: _tutorial.allowsInput,
+          child: Scaffold(
+            body: SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Padding(
+                    padding: const EdgeInsets.all(DungeonTheme.pagePadding),
+                    child: ListenableBuilder(
+                      listenable: _controller,
+                      builder: (context, child) => TickerMode(
+                        enabled: !_controller.isPaused,
+                        child: Column(
+                          children: [
+                            _DungeonHeader(
+                              floorNumber: _controller.dungeon.floor.number,
+                              adventurer: _controller.dungeon.adventurer,
+                              isSelected: _controller.isSelected,
+                              onSelect:
+                                  _tutorial.allows(
+                                    DungeonTutorialControl.selection,
+                                  )
+                                  ? _selectCharacter
+                                  : null,
+                              onMenu:
+                                  _tutorial.allows(DungeonTutorialControl.menu)
+                                  ? _openMenu
+                                  : null,
+                              portraitAnchorKey: _portraitAnchorKey,
+                            ),
+                            const SizedBox(height: DungeonTheme.spacing * 2),
+                            Expanded(
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  // En pantallas bajas y anchas, el panel va al lado para conservar ambos.
+                                  final sideMenu =
+                                      constraints.maxWidth >= 480 &&
+                                      constraints.maxHeight <
+                                          MovementMenu.minimumHeight * 2;
+                                  final verticalBoardSize = math.min(
+                                    constraints.maxWidth,
+                                    math.min(
+                                      constraints.maxHeight * 0.64,
+                                      math.max(
+                                        0.0,
+                                        constraints.maxHeight -
+                                            MovementMenu.minimumHeight -
+                                            DungeonTheme.spacing * 2,
+                                      ),
+                                    ),
+                                  );
+                                  final boardSize = sideMenu
+                                      ? math.min(
+                                          constraints.maxHeight,
+                                          constraints.maxWidth * 0.4,
+                                        )
+                                      : verticalBoardSize;
+                                  final tileSize =
+                                      boardSize / DungeonFloor.size;
+                                  return Listener(
+                                    onPointerCancel: (_) {
+                                      _drag.reset();
+                                      _controller.cancelDrag();
+                                    },
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      dragStartBehavior: DragStartBehavior.down,
+                                      onPanStart: (_) {
+                                        if (!_tutorial.allows(
+                                          DungeonTutorialControl.movement,
+                                        )) {
+                                          return;
+                                        }
+                                        _drag.reset();
+                                        _controller.beginDrag();
+                                      },
+                                      onPanEnd: (_) {
+                                        _drag.reset();
+                                        _controller.endDrag();
+                                      },
+                                      onPanCancel: () {
+                                        _drag.reset();
+                                        _controller.cancelDrag();
+                                      },
+                                      onPanUpdate: (details) {
+                                        if (!_tutorial.allows(
+                                          DungeonTutorialControl.movement,
+                                        )) {
+                                          return;
+                                        }
+                                        final movement = _drag.add(
+                                          dx: details.delta.dx,
+                                          dy: details.delta.dy,
+                                          stepDistance:
+                                              math.max(tileSize, 16) *
+                                              widget
+                                                  .settings
+                                                  .value
+                                                  .dragDistanceMultiplier,
+                                        );
+                                        if (movement == null) {
+                                          return;
+                                        }
 
-                                    _controller.preview(
-                                      movement.direction,
-                                      steps: movement.steps,
-                                    );
-                                  },
-                                  child: Flex(
-                                    direction: sideMenu
-                                        ? Axis.horizontal
-                                        : Axis.vertical,
-                                    children: [
-                                      SizedBox.square(
-                                        dimension: boardSize,
-                                        child: DungeonBoard(
-                                          key: const ValueKey('dungeon-grid'),
-                                          floor: _controller.dungeon.floor,
-                                          player: _controller.dungeon.player,
-                                          movementPath:
-                                              _controller.remainingPath,
-                                          isSelected: _controller.isSelected,
-                                          onSelectPlayer:
-                                              _controller.selectCharacter,
-                                          playerAnchorKey: _playerAnchorKey,
-                                        ),
+                                        _controller.preview(
+                                          movement.direction,
+                                          steps: movement.steps,
+                                        );
+                                      },
+                                      child: Flex(
+                                        direction: sideMenu
+                                            ? Axis.horizontal
+                                            : Axis.vertical,
+                                        children: [
+                                          SizedBox.square(
+                                            key: _gridAnchorKey,
+                                            dimension: boardSize,
+                                            child: DungeonBoard(
+                                              key: const ValueKey(
+                                                'dungeon-grid',
+                                              ),
+                                              floor: _controller.dungeon.floor,
+                                              player:
+                                                  _controller.dungeon.player,
+                                              movementPath:
+                                                  _controller.remainingPath,
+                                              isSelected:
+                                                  _controller.isSelected,
+                                              onSelectPlayer:
+                                                  _tutorial.allows(
+                                                    DungeonTutorialControl
+                                                        .selection,
+                                                  )
+                                                  ? _selectCharacter
+                                                  : null,
+                                              playerAnchorKey: _playerAnchorKey,
+                                              stairsAnchorKey: _stairsAnchorKey,
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width: sideMenu
+                                                ? DungeonTheme.spacing * 2
+                                                : 0,
+                                            height: sideMenu
+                                                ? 0
+                                                : DungeonTheme.spacing * 2,
+                                          ),
+                                          Expanded(
+                                            child: MovementMenu(
+                                              key: _movementMenuKey,
+                                              controller: _controller,
+                                              enabled: _tutorial.allows(
+                                                DungeonTutorialControl.confirm,
+                                              ),
+                                              pulseConfirm: _tutorial
+                                                  .emphasizes(
+                                                    DungeonTutorialControl
+                                                        .confirm,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      SizedBox(
-                                        width: sideMenu
-                                            ? DungeonTheme.spacing * 2
-                                            : 0,
-                                        height: sideMenu
-                                            ? 0
-                                            : DungeonTheme.spacing * 2,
-                                      ),
-                                      Expanded(
-                                        child: MovementMenu(
-                                          key: _movementMenuKey,
-                                          controller: _controller,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -316,7 +408,16 @@ class _DungeonPageState extends State<DungeonPage> {
             ),
           ),
         ),
-      ),
+        if (_tutorial.currentStep?.spotlight case final spotlight?)
+          Positioned.fill(
+            child: TutorialSpotlight(
+              key: const ValueKey('tutorial-spotlight'),
+              specification: spotlight,
+              anchors: _tutorialAnchors,
+              onAction: _tutorial.signal,
+            ),
+          ),
+      ],
     ),
   );
 }
@@ -325,8 +426,9 @@ class _DungeonHeader extends StatelessWidget {
   final int floorNumber;
   final Adventurer adventurer;
   final bool isSelected;
-  final VoidCallback onSelect;
-  final VoidCallback onMenu;
+  final VoidCallback? onSelect;
+  final VoidCallback? onMenu;
+  final GlobalKey portraitAnchorKey;
 
   const _DungeonHeader({
     required this.floorNumber,
@@ -334,6 +436,7 @@ class _DungeonHeader extends StatelessWidget {
     required this.isSelected,
     required this.onSelect,
     required this.onMenu,
+    required this.portraitAnchorKey,
   });
 
   @override
@@ -373,6 +476,7 @@ class _DungeonHeader extends StatelessWidget {
           selected: isSelected,
           label: DungeonStrings.selectAdventurer,
           child: GestureDetector(
+            key: portraitAnchorKey,
             behavior: HitTestBehavior.opaque,
             onTap: onSelect,
             child: AdventurerInformation(

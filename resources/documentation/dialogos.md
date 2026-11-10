@@ -3,7 +3,9 @@
 `OpeningTutorial.dialogue` contiene el título y los cinco textos de la introducción.
 Se reproduce en cada partida nueva, un segundo después de terminar la transición
 de entrada. Desde que aparece la planta, toda interacción con el juego queda
-bloqueada, incluida la espera de un segundo, hasta cerrar el tutorial completo.
+bloqueada, incluida la espera de un segundo. Al cerrar el diálogo comienza la guía
+interactiva definida en `OpeningTutorial.guide`; sus pasos habilitan solamente los
+controles necesarios. Consulta `tutoriales_interactivos.md` para reutilizarla.
 
 Para crear otra conversación, define una `DialogueSequence` con un `speaker` y
 una lista no vacía de `DialogueLine`. Cada línea contiene fragmentos
@@ -29,10 +31,9 @@ inferior como ancla, también cuando el diseño coloca ese menú junto al tabler
   visibles conservan su movimiento al aparecer las restantes.
 
 La ruta modal oscurece el fondo y bloquea sus entradas táctiles y de foco.
-La página pausa el juego desde su entrada y lo reanuda después de esperar el
-`Future` de `showDialogue`, que incluye la animación de salida. Así, un movimiento
-en curso tampoco avanza mientras se lee. Los temporizadores y animaciones se
-liberan al retirar sus widgets.
+La página pausa el juego desde su entrada y espera el `Future` de `showDialogue`,
+que incluye la animación de salida, antes de iniciar la guía interactiva.
+Los temporizadores y animaciones se liberan al retirar sus widgets.
 
 Los ajustes se comparten entre el menú principal y la partida durante la sesión.
 La sensibilidad de movimiento predeterminada es 4/5 (multiplicador de distancia 2).

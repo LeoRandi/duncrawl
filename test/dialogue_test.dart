@@ -153,6 +153,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pump();
       expect(find.byType(DialogueWindow), findsNothing);
+      await tester.pump(const Duration(milliseconds: 500));
       await tester.tap(find.byKey(const ValueKey('player-portrait')));
       await tester.pump();
       expect(_board(tester).isSelected, isTrue);

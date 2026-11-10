@@ -80,6 +80,7 @@ class _MainMenuPageState extends State<MainMenuPage> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_isStarting,
     child: Scaffold(
+      backgroundColor: DungeonColors.floorTile,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

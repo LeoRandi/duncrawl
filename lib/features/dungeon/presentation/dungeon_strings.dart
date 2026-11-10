@@ -30,6 +30,9 @@ abstract final class DungeonStrings {
   static const selectAdventurer = 'Select adventurer';
   static const selectPrompt = 'Select something to continue';
   static const movement = 'Movement';
+  static const tutorialSelect = 'Select your character to allow movement';
+  static const tutorialDrag = 'Now try dragging around to move the character';
+  static const tutorialStairs = 'Use the stairs to exit this floor';
 
   static String textSpeedName(TextSpeed speed) => switch (speed) {
     TextSpeed.slow => slowText,

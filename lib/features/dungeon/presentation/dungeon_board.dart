@@ -24,6 +24,7 @@ class DungeonBoard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onSelectPlayer;
   final GlobalKey? playerAnchorKey;
+  final GlobalKey? stairsAnchorKey;
 
   const DungeonBoard({
     super.key,
@@ -33,6 +34,7 @@ class DungeonBoard extends StatelessWidget {
     this.isSelected = false,
     this.onSelectPlayer,
     this.playerAnchorKey,
+    this.stairsAnchorKey,
   });
 
   @override
@@ -42,6 +44,9 @@ class DungeonBoard extends StatelessWidget {
     child: LayoutBuilder(
       builder: (context, constraints) {
         final tileSize = constraints.maxWidth / DungeonFloor.size;
+        final stairs = floor.groundObjects
+            .where((object) => object.type == GroundObjectType.stairsUp)
+            .firstOrNull;
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -79,6 +84,7 @@ class DungeonBoard extends StatelessWidget {
                       height: tileSize,
                       child: switch (object.type) {
                         GroundObjectType.stairsUp => Icon(
+                          key: object == stairs ? stairsAnchorKey : null,
                           Icons.stairs_rounded,
                           size: tileSize * 0.8,
                           color: DungeonColors.textSecondary,

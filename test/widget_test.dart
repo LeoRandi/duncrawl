@@ -150,8 +150,9 @@ void main() {
     expect(
       tester
           .widgetList<SelectionFrame>(find.byType(SelectionFrame))
-          .every((frame) => frame.selected),
-      isTrue,
+          .where((frame) => frame.selected)
+          .length,
+      2,
     );
     final border = find.byKey(const ValueKey('selection-border')).first;
     final initialWidth = tester.getSize(border).width;

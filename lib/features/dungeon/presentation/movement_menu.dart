@@ -5,18 +5,26 @@ import '../../../widgets/interaction_gate.dart';
 import 'dungeon_controller.dart';
 import 'dungeon_strings.dart';
 import 'adventurer_information.dart';
+import 'selection_frame.dart';
 
 class MovementMenu extends StatelessWidget {
   static const minimumHeight = 160.0;
 
   final DungeonController controller;
+  final bool enabled;
+  final bool pulseConfirm;
 
-  const MovementMenu({super.key, required this.controller});
+  const MovementMenu({
+    super.key,
+    required this.controller,
+    this.enabled = true,
+    this.pulseConfirm = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return InteractionGate(
-      enabled: controller.isBottomMenuEnabled,
+      enabled: enabled && controller.isBottomMenuEnabled,
       child: Semantics(
         label: DungeonStrings.optionMenu,
         child: Container(
@@ -31,7 +39,10 @@ class MovementMenu extends StatelessWidget {
             borderRadius: BorderRadius.circular(DungeonTheme.cornerRadius),
           ),
           child: controller.isSelected
-              ? _SelectedCharacterMenu(controller: controller)
+              ? _SelectedCharacterMenu(
+                  controller: controller,
+                  pulseConfirm: pulseConfirm,
+                )
               : Center(
                   child: Padding(
                     padding: const EdgeInsets.all(DungeonTheme.spacing),
@@ -52,8 +63,12 @@ class MovementMenu extends StatelessWidget {
 
 class _SelectedCharacterMenu extends StatelessWidget {
   final DungeonController controller;
+  final bool pulseConfirm;
 
-  const _SelectedCharacterMenu({required this.controller});
+  const _SelectedCharacterMenu({
+    required this.controller,
+    required this.pulseConfirm,
+  });
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -168,29 +183,35 @@ class _SelectedCharacterMenu extends StatelessWidget {
                             controller.confirm();
                           }
                         },
-                        child: FilledButton(
-                          key: const ValueKey('confirm-movement'),
-                          style: buttonStyle.copyWith(
-                            foregroundColor: WidgetStateProperty.resolveWith(
-                              (states) => states.contains(WidgetState.disabled)
-                                  ? DungeonColors.textDisabled
-                                  : DungeonColors.background,
-                            ),
-                            backgroundColor: WidgetStateProperty.resolveWith(
-                              (states) => states.contains(WidgetState.disabled)
-                                  ? DungeonColors.background
-                                  : DungeonColors.primary,
-                            ),
-                            side: WidgetStateProperty.resolveWith(
-                              (states) => BorderSide(
-                                color: states.contains(WidgetState.disabled)
+                        child: SelectionFrame(
+                          key: const ValueKey('tutorial-confirm-pulse'),
+                          selected: pulseConfirm && canConfirm,
+                          child: FilledButton(
+                            key: const ValueKey('confirm-movement'),
+                            style: buttonStyle.copyWith(
+                              foregroundColor: WidgetStateProperty.resolveWith(
+                                (states) =>
+                                    states.contains(WidgetState.disabled)
                                     ? DungeonColors.textDisabled
+                                    : DungeonColors.background,
+                              ),
+                              backgroundColor: WidgetStateProperty.resolveWith(
+                                (states) =>
+                                    states.contains(WidgetState.disabled)
+                                    ? DungeonColors.background
                                     : DungeonColors.primary,
                               ),
+                              side: WidgetStateProperty.resolveWith(
+                                (states) => BorderSide(
+                                  color: states.contains(WidgetState.disabled)
+                                      ? DungeonColors.textDisabled
+                                      : DungeonColors.primary,
+                                ),
+                              ),
                             ),
+                            onPressed: canConfirm ? controller.confirm : null,
+                            child: const Text(DungeonStrings.confirm),
                           ),
-                          onPressed: canConfirm ? controller.confirm : null,
-                          child: const Text(DungeonStrings.confirm),
                         ),
                       ),
                     ),
