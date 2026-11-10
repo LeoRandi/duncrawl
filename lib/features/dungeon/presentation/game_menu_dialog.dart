@@ -6,7 +6,9 @@ import 'dungeon_strings.dart';
 enum GameMenuAction { continueGame, bestiary, settings, mainMenu }
 
 class GameMenuDialog extends StatelessWidget {
-  const GameMenuDialog({super.key});
+  final ValueChanged<Offset> onMainMenu;
+
+  const GameMenuDialog({super.key, required this.onMainMenu});
 
   @override
   Widget build(BuildContext context) => Dialog(
@@ -19,14 +21,25 @@ class GameMenuDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final action in GameMenuAction.values) ...[
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(action),
-                child: Text(switch (action) {
-                  GameMenuAction.continueGame => DungeonStrings.continueGame,
-                  GameMenuAction.bestiary => DungeonStrings.bestiary,
-                  GameMenuAction.settings => DungeonStrings.settings,
-                  GameMenuAction.mainMenu => DungeonStrings.mainMenu,
-                }),
+              Builder(
+                builder: (buttonContext) => OutlinedButton(
+                  onPressed: () {
+                    if (action == GameMenuAction.mainMenu) {
+                      final box = buttonContext.findRenderObject() as RenderBox;
+                      onMainMenu(
+                        box.localToGlobal(box.size.center(Offset.zero)),
+                      );
+                      return;
+                    }
+                    Navigator.of(context).pop(action);
+                  },
+                  child: Text(switch (action) {
+                    GameMenuAction.continueGame => DungeonStrings.continueGame,
+                    GameMenuAction.bestiary => DungeonStrings.bestiary,
+                    GameMenuAction.settings => DungeonStrings.settings,
+                    GameMenuAction.mainMenu => DungeonStrings.mainMenu,
+                  }),
+                ),
               ),
               if (action != GameMenuAction.values.last)
                 const SizedBox(height: DungeonTheme.spacing),

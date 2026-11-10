@@ -23,6 +23,7 @@ class DungeonBoard extends StatelessWidget {
   final List<GridPosition> movementPath;
   final bool isSelected;
   final VoidCallback? onSelectPlayer;
+  final GlobalKey? playerAnchorKey;
 
   const DungeonBoard({
     super.key,
@@ -31,6 +32,7 @@ class DungeonBoard extends StatelessWidget {
     this.movementPath = const [],
     this.isSelected = false,
     this.onSelectPlayer,
+    this.playerAnchorKey,
   });
 
   @override
@@ -92,6 +94,7 @@ class DungeonBoard extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned(
+                    key: playerAnchorKey,
                     left: player.column * tileSize,
                     top: player.row * tileSize,
                     width: tileSize,
