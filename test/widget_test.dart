@@ -13,6 +13,8 @@ import 'package:duncrawl/features/dungeon/presentation/selection_frame.dart';
 import 'package:duncrawl/features/dungeon/floors/floor_0.dart';
 import 'package:duncrawl/main.dart';
 
+import 'helpers/dialogue_helpers.dart';
+
 void main() {
   testWidgets(
     'Confirm updates during dragging and can commit before finger release',
@@ -249,7 +251,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    expect(find.byType(Slider), findsOneWidget);
+    expect(find.byType(Slider), findsNWidgets(2));
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
@@ -380,6 +382,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DungeonBoard), findsOneWidget);
 
+    await completeOpeningTutorial(tester);
     await tester.tap(find.byTooltip('Menu'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Main menu'));
@@ -394,7 +397,10 @@ void main() {
     await tester.pumpWidget(const DungeonCrawlerApp());
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(Slider), const Offset(-300, 0));
+    await tester.drag(
+      find.byKey(const ValueKey('movement-sensitivity-slider')),
+      const Offset(-300, 0),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
@@ -404,9 +410,12 @@ void main() {
     expect(
       tester
           .widget<DungeonPage>(find.byType(DungeonPage))
+          .settings
+          .value
           .dragDistanceMultiplier,
       5,
     );
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('Close requests the native application to close', (tester) async {
@@ -504,7 +513,7 @@ void main() {
     expect(board.movementPath.last.row, lessThan(7));
   });
 
-  testWidgets('Movement now needs three tile widths of dragging per step', (
+  testWidgets('Default movement needs two tile widths of dragging per step', (
     tester,
   ) async {
     await _startGame(tester);
@@ -714,12 +723,17 @@ double _stepDistance(WidgetTester tester) =>
       tester.getSize(find.byType(DungeonBoard)).width / DungeonFloor.size,
       16,
     ) *
-    DungeonPage.defaultDragDistanceMultiplier;
+    tester
+        .widget<DungeonPage>(find.byType(DungeonPage))
+        .settings
+        .value
+        .dragDistanceMultiplier;
 
 Future<void> _startGame(WidgetTester tester, {bool select = true}) async {
   await tester.pumpWidget(const DungeonCrawlerApp());
   await tester.tap(find.text('Start'));
   await tester.pumpAndSettle();
+  await completeOpeningTutorial(tester);
   if (select) {
     await tester.tap(find.byKey(const ValueKey('player-portrait')));
     await tester.pump();

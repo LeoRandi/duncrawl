@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -5,7 +7,8 @@ import '../../../app/dungeon_theme.dart';
 import '../../../widgets/iris_transition.dart';
 import '../../dungeon/presentation/dungeon_page.dart';
 import '../../dungeon/presentation/dungeon_strings.dart';
-import 'movement_settings_dialog.dart';
+import '../../settings/domain/game_settings.dart';
+import '../../settings/presentation/game_settings_dialog.dart';
 
 class MainMenuPage extends StatefulWidget {
   const MainMenuPage({super.key});
@@ -16,7 +19,7 @@ class MainMenuPage extends StatefulWidget {
 
 class _MainMenuPageState extends State<MainMenuPage> {
   final _startButtonKey = GlobalKey(debugLabel: 'start-transition-anchor');
-  double _dragDistanceMultiplier = DungeonPage.defaultDragDistanceMultiplier;
+  final _settings = ValueNotifier(const GameSettings());
   bool _isStarting = false;
 
   Future<void> _startGame() async {
@@ -25,6 +28,7 @@ class _MainMenuPageState extends State<MainMenuPage> {
     }
     final navigator = Navigator.of(context);
     final playerAnchorKey = GlobalKey(debugLabel: 'arrival-player-anchor');
+    final entryTransition = Completer<void>();
     setState(() => _isStarting = true);
     try {
       await IrisTransition.run(
@@ -37,8 +41,9 @@ class _MainMenuPageState extends State<MainMenuPage> {
               reverseTransitionDuration: Duration.zero,
               pageBuilder: (context, animation, secondaryAnimation) =>
                   DungeonPage(
-                    dragDistanceMultiplier: _dragDistanceMultiplier,
+                    settings: _settings,
                     playerAnchorKey: playerAnchorKey,
+                    entryTransition: entryTransition.future,
                   ),
             ),
           );
@@ -46,6 +51,7 @@ class _MainMenuPageState extends State<MainMenuPage> {
         openingCenter: () => IrisTransition.centerOf(playerAnchorKey),
       );
     } finally {
+      entryTransition.complete();
       if (mounted) {
         setState(() => _isStarting = false);
       }
@@ -53,17 +59,21 @@ class _MainMenuPageState extends State<MainMenuPage> {
   }
 
   Future<void> _openSettings() async {
-    final multiplier = await showDialog<double>(
+    final settings = await showDialog<GameSettings>(
       context: context,
-      builder: (context) => MovementSettingsDialog(
-        dragDistanceMultiplier: _dragDistanceMultiplier,
-      ),
+      builder: (context) => GameSettingsDialog(settings: _settings.value),
     );
-    if (!mounted || multiplier == null) {
+    if (!mounted || settings == null) {
       return;
     }
 
-    setState(() => _dragDistanceMultiplier = multiplier);
+    _settings.value = settings;
+  }
+
+  @override
+  void dispose() {
+    _settings.dispose();
+    super.dispose();
   }
 
   @override

@@ -1,3 +1,5 @@
+import '../../settings/domain/text_speed.dart';
+
 abstract final class DungeonStrings {
   static const appTitle = 'Dungeon Crawler 0';
   static const adventurer = 'Adventurer';
@@ -9,6 +11,10 @@ abstract final class DungeonStrings {
   static const close = 'Close';
   static const mainMenu = 'Main menu';
   static const movementSensitivity = 'Movement sensitivity';
+  static const slowText = 'Slow';
+  static const mediumText = 'Medium';
+  static const fastText = 'Fast';
+  static const instantText = 'Instant';
   static const slower = 'Slower';
   static const faster = 'Faster';
   static const done = 'Done';
@@ -24,6 +30,16 @@ abstract final class DungeonStrings {
   static const selectAdventurer = 'Select adventurer';
   static const selectPrompt = 'Select something to continue';
   static const movement = 'Movement';
+
+  static String textSpeedName(TextSpeed speed) => switch (speed) {
+    TextSpeed.slow => slowText,
+    TextSpeed.medium => mediumText,
+    TextSpeed.fast => fastText,
+    TextSpeed.instant => instantText,
+  };
+
+  static String textSpeedSetting(TextSpeed speed) =>
+      'Text speed: ${textSpeedName(speed)}';
 
   static String movementAllowance({
     required int remaining,

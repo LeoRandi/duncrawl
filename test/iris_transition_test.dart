@@ -6,6 +6,8 @@ import 'package:duncrawl/features/dungeon/presentation/game_menu_dialog.dart';
 import 'package:duncrawl/main.dart';
 import 'package:duncrawl/widgets/iris_transition.dart';
 
+import 'helpers/dialogue_helpers.dart';
+
 void main() {
   test(
     'Iris follows the 750/350/400 ms motion and rebounds in both directions',
@@ -122,6 +124,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
       expect(find.byType(IrisMask), findsNothing);
       expect(find.byType(DungeonBoard), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
     },
   );
 
@@ -131,6 +134,7 @@ void main() {
       await tester.pumpWidget(const DungeonCrawlerApp());
       await tester.tap(find.text('Start'));
       await tester.pumpAndSettle();
+      await completeOpeningTutorial(tester);
       await tester.tap(find.byTooltip('Menu'));
       await tester.pumpAndSettle();
       final menuButton = find.widgetWithText(OutlinedButton, 'Main menu');
@@ -172,6 +176,7 @@ void main() {
     await tester.pumpWidget(const DungeonCrawlerApp());
     await tester.tap(find.text('Start'));
     await tester.pumpAndSettle();
+    await completeOpeningTutorial(tester);
     final playerCenter = tester.getCenter(find.byKey(const ValueKey('player')));
     await tester.binding.handlePopRoute();
     await tester.pump();
