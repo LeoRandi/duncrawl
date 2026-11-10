@@ -22,6 +22,13 @@ abstract final class DungeonStrings {
   static const back = 'Back';
   static const unselect = 'Unselect';
   static const selectAdventurer = 'Select adventurer';
+  static const selectPrompt = 'Select something to continue';
+  static const movement = 'Movement';
+
+  static String movementAllowance({
+    required int remaining,
+    required int total,
+  }) => '$remaining/$total';
 
   static String destination({required int column, required int row}) =>
       'Destination: column $column, row $row';

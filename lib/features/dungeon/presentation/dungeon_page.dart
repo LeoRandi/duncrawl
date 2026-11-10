@@ -16,6 +16,7 @@ import 'dungeon_strings.dart';
 import 'movement_menu.dart';
 import 'game_menu_dialog.dart';
 import 'selection_frame.dart';
+import 'adventurer_information.dart';
 
 class DungeonPage extends StatefulWidget {
   static const defaultDragDistanceMultiplier = 3.0;
@@ -83,7 +84,6 @@ class _DungeonPageState extends State<DungeonPage> {
             ),
           );
         case GameMenuAction.mainMenu:
-          _controller.unselect();
           Navigator.of(context).pop();
           return;
         case GameMenuAction.continueGame || null:
@@ -124,19 +124,29 @@ class _DungeonPageState extends State<DungeonPage> {
                     Expanded(
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          // Conserva espacio para el panel incluso en pantallas bajas.
-                          final boardSize = math.min(
+                          // En pantallas bajas y anchas, el panel va al lado para conservar ambos.
+                          final sideMenu =
+                              constraints.maxWidth >= 480 &&
+                              constraints.maxHeight <
+                                  MovementMenu.minimumHeight * 2;
+                          final verticalBoardSize = math.min(
                             constraints.maxWidth,
                             math.min(
                               constraints.maxHeight * 0.64,
                               math.max(
                                 0.0,
                                 constraints.maxHeight -
-                                    80 -
+                                    MovementMenu.minimumHeight -
                                     DungeonTheme.spacing * 2,
                               ),
                             ),
                           );
+                          final boardSize = sideMenu
+                              ? math.min(
+                                  constraints.maxHeight,
+                                  constraints.maxWidth * 0.4,
+                                )
+                              : verticalBoardSize;
                           final tileSize = boardSize / DungeonFloor.size;
                           return Listener(
                             onPointerCancel: (_) {
@@ -175,7 +185,10 @@ class _DungeonPageState extends State<DungeonPage> {
                                   steps: movement.steps,
                                 );
                               },
-                              child: Column(
+                              child: Flex(
+                                direction: sideMenu
+                                    ? Axis.horizontal
+                                    : Axis.vertical,
                                 children: [
                                   SizedBox.square(
                                     dimension: boardSize,
@@ -189,8 +202,13 @@ class _DungeonPageState extends State<DungeonPage> {
                                           _controller.selectCharacter,
                                     ),
                                   ),
-                                  const SizedBox(
-                                    height: DungeonTheme.spacing * 2,
+                                  SizedBox(
+                                    width: sideMenu
+                                        ? DungeonTheme.spacing * 2
+                                        : 0,
+                                    height: sideMenu
+                                        ? 0
+                                        : DungeonTheme.spacing * 2,
                                   ),
                                   Expanded(
                                     child: MovementMenu(
@@ -269,50 +287,14 @@ class _DungeonHeader extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onSelect,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SelectionFrame(
-                  selected: isSelected,
-                  child: Container(
-                    key: const ValueKey('player-portrait'),
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: DungeonColors.surface,
-                      border: Border.all(
-                        color: DungeonColors.primary,
-                        width: DungeonTheme.selectedBorderWidth,
-                      ),
-                      borderRadius: BorderRadius.circular(
-                        DungeonTheme.cornerRadius,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.person_rounded,
-                      color: DungeonColors.primary,
-                      size: 24,
-                    ),
-                  ),
+            child: AdventurerInformation(
+              adventurer: adventurer,
+              portrait: SelectionFrame(
+                selected: isSelected,
+                child: const AdventurerPortrait(
+                  key: ValueKey('player-portrait'),
                 ),
-                const SizedBox(width: DungeonTheme.spacing),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      DungeonStrings.level(adventurer.level),
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    Text(
-                      DungeonStrings.health(
-                        current: adventurer.health,
-                        maximum: adventurer.maximumHealth,
-                      ),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),

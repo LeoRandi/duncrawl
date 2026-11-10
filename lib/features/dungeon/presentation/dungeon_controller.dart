@@ -9,8 +9,10 @@ import '../domain/movement_plan.dart';
 enum MovementPhase { idle, dragging, awaitingConfirmation, moving }
 
 class DungeonController extends ChangeNotifier {
-  static const stepDuration = Duration(milliseconds: 500);
+  static const stepDuration = Duration(milliseconds: 300);
+  static final _movementMenuLock = Object();
 
+  final Set<Object> _bottomMenuLocks = {};
   Dungeon _dungeon;
   late MovementPlan _plan = MovementPlan.start(_dungeon);
   MovementPhase _phase = MovementPhase.idle;
@@ -25,9 +27,34 @@ class DungeonController extends ChangeNotifier {
   MovementPlan get plan => _plan;
   MovementPhase get phase => _phase;
   bool get isMoving => _phase == MovementPhase.moving;
-  bool get canConfirm => _phase == MovementPhase.awaitingConfirmation;
+  bool get canConfirm =>
+      _isSelected &&
+      isBottomMenuEnabled &&
+      _plan.path.isNotEmpty &&
+      (_phase == MovementPhase.dragging ||
+          _phase == MovementPhase.awaitingConfirmation);
   bool get isSelected => _isSelected;
   bool get isPaused => _isPaused;
+  bool get isBottomMenuEnabled => !_isPaused && _bottomMenuLocks.isEmpty;
+
+  /// Bloquea el menú hasta que el mismo propietario libere su motivo.
+  /// Cada acción usa su propio token; adquirirlo de nuevo no duplica el bloqueo.
+  void disableBottomMenu(Object reason) {
+    if (!_bottomMenuLocks.add(reason)) {
+      return;
+    }
+
+    notifyListeners();
+  }
+
+  /// Libera solo este motivo, conservando los bloqueos de otras acciones.
+  void enableBottomMenu(Object reason) {
+    if (!_bottomMenuLocks.remove(reason)) {
+      return;
+    }
+
+    notifyListeners();
+  }
 
   void selectCharacter() {
     if (_isSelected || _isPaused) {
@@ -38,8 +65,12 @@ class DungeonController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Cancela el turno pendiente o en curso y conserva la última casilla alcanzada.
+  /// Cancela la selección y el turno pendiente cuando el menú está disponible.
   void unselect() {
+    if (!isBottomMenuEnabled) {
+      return;
+    }
+
     _movementTimer?.cancel();
     _movementTimer = null;
     _nextStep = 0;
@@ -80,7 +111,7 @@ class DungeonController extends ChangeNotifier {
   }
 
   void beginDrag() {
-    if (!_isSelected || _isPaused || isMoving) {
+    if (!_isSelected || !isBottomMenuEnabled || isMoving) {
       return;
     }
 
@@ -90,7 +121,9 @@ class DungeonController extends ChangeNotifier {
   }
 
   void preview(DungeonDirection direction, {int steps = 1}) {
-    if (!_isSelected || _isPaused || _phase != MovementPhase.dragging) {
+    if (!_isSelected ||
+        !isBottomMenuEnabled ||
+        _phase != MovementPhase.dragging) {
       return;
     }
 
@@ -131,14 +164,14 @@ class DungeonController extends ChangeNotifier {
   }
 
   void confirm() {
-    if (!_isSelected || _isPaused || !canConfirm) {
+    if (!canConfirm) {
       return;
     }
 
     _phase = MovementPhase.moving;
     _nextStep = 0;
     _movementTimer = Timer.periodic(stepDuration, (_) => _advance());
-    notifyListeners();
+    disableBottomMenu(_movementMenuLock);
   }
 
   void _advance() {
@@ -149,6 +182,8 @@ class DungeonController extends ChangeNotifier {
       _movementTimer = null;
       _phase = MovementPhase.idle;
       _plan = MovementPlan.start(_dungeon);
+      enableBottomMenu(_movementMenuLock);
+      return;
     }
     notifyListeners();
   }

@@ -10,6 +10,7 @@ abstract final class DungeonColors {
   static const surfaceRaised = primary;
   static const textPrimary = primary;
   static const textSecondary = primary;
+  static const textDisabled = Color(0xFF808080);
 }
 
 abstract final class DungeonTheme {

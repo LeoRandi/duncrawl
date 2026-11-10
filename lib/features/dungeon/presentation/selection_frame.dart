@@ -63,7 +63,7 @@ class _SelectionFrameState extends State<SelectionFrame>
         AnimatedBuilder(
           animation: _animation,
           builder: (context, child) {
-            final expansion = _animation.value * 3;
+            final expansion = _animation.value * 1.5;
             return Positioned(
               left: -expansion,
               right: -expansion,
