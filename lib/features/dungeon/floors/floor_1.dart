@@ -1,0 +1,87 @@
+import '../domain/dungeon_floor.dart';
+import '../domain/grid_position.dart';
+
+const floor1 = DungeonFloorTemplate(
+  number: 1,
+  rows: [
+    '###############',
+    '#...#.....#...#',
+    '#...#.....#...#',
+    '#.............#',
+    '###.........###',
+    '#.............#',
+    '#.............#',
+    '#.............#',
+    '#.............#',
+    '#.............#',
+    '###.........###',
+    '#.............#',
+    '#...#.....#.@.#',
+    '#...#.....#...#',
+    '###############',
+  ],
+  groundObjects: [
+    DungeonGroundObject(
+      type: GroundObjectType.stairsUp,
+      position: GridPosition(2, 2),
+    ),
+    ..._grass,
+  ],
+);
+
+// Los cuatro brazos se unen al centro sin cubrir paredes, aparición ni escalera.
+const _grass = [
+  DungeonGroundObject.grass(GridPosition(7, 7)),
+  // Centro hacia la esquina superior izquierda.
+  DungeonGroundObject.grass(GridPosition(6, 7)),
+  DungeonGroundObject.grass(GridPosition(6, 6)),
+  DungeonGroundObject.grass(GridPosition(5, 6)),
+  DungeonGroundObject.grass(GridPosition(5, 5)),
+  DungeonGroundObject.grass(GridPosition(4, 5)),
+  DungeonGroundObject.grass(GridPosition(4, 4)),
+  DungeonGroundObject.grass(GridPosition(3, 4)),
+  DungeonGroundObject.grass(GridPosition(3, 3)),
+  DungeonGroundObject.grass(GridPosition(2, 3)),
+  DungeonGroundObject.grass(GridPosition(1, 3)),
+  DungeonGroundObject.grass(GridPosition(1, 2)),
+  DungeonGroundObject.grass(GridPosition(1, 1)),
+  // Centro hacia la esquina superior derecha.
+  DungeonGroundObject.grass(GridPosition(7, 6)),
+  DungeonGroundObject.grass(GridPosition(8, 6)),
+  DungeonGroundObject.grass(GridPosition(8, 5)),
+  DungeonGroundObject.grass(GridPosition(9, 5)),
+  DungeonGroundObject.grass(GridPosition(9, 4)),
+  DungeonGroundObject.grass(GridPosition(10, 4)),
+  DungeonGroundObject.grass(GridPosition(11, 4)),
+  DungeonGroundObject.grass(GridPosition(11, 3)),
+  DungeonGroundObject.grass(GridPosition(12, 3)),
+  DungeonGroundObject.grass(GridPosition(13, 3)),
+  DungeonGroundObject.grass(GridPosition(13, 2)),
+  DungeonGroundObject.grass(GridPosition(13, 1)),
+  // Centro hacia la esquina inferior izquierda.
+  DungeonGroundObject.grass(GridPosition(7, 8)),
+  DungeonGroundObject.grass(GridPosition(6, 8)),
+  DungeonGroundObject.grass(GridPosition(6, 9)),
+  DungeonGroundObject.grass(GridPosition(5, 9)),
+  DungeonGroundObject.grass(GridPosition(5, 10)),
+  DungeonGroundObject.grass(GridPosition(4, 10)),
+  DungeonGroundObject.grass(GridPosition(3, 10)),
+  DungeonGroundObject.grass(GridPosition(3, 11)),
+  DungeonGroundObject.grass(GridPosition(2, 11)),
+  DungeonGroundObject.grass(GridPosition(1, 11)),
+  DungeonGroundObject.grass(GridPosition(1, 12)),
+  DungeonGroundObject.grass(GridPosition(1, 13)),
+  // Centro hacia la esquina inferior derecha.
+  DungeonGroundObject.grass(GridPosition(8, 7)),
+  DungeonGroundObject.grass(GridPosition(8, 8)),
+  DungeonGroundObject.grass(GridPosition(9, 8)),
+  DungeonGroundObject.grass(GridPosition(9, 9)),
+  DungeonGroundObject.grass(GridPosition(10, 9)),
+  DungeonGroundObject.grass(GridPosition(10, 10)),
+  DungeonGroundObject.grass(GridPosition(11, 10)),
+  DungeonGroundObject.grass(GridPosition(11, 11)),
+  DungeonGroundObject.grass(GridPosition(12, 11)),
+  DungeonGroundObject.grass(GridPosition(13, 11)),
+  DungeonGroundObject.grass(GridPosition(13, 12)),
+  DungeonGroundObject.grass(GridPosition(13, 13)),
+];

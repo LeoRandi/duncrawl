@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
 import '../domain/dungeon.dart';
+import '../domain/dungeon_floor.dart';
+import '../domain/floor_change_request.dart';
 import '../domain/grid_position.dart';
+import '../domain/ground_object_interaction_context.dart';
+import '../domain/ground_object_interaction_request.dart';
 import '../domain/movement_plan.dart';
 
 enum MovementPhase { idle, dragging, awaitingConfirmation, moving }
@@ -14,14 +19,37 @@ class DungeonController extends ChangeNotifier {
 
   final Set<Object> _bottomMenuLocks = {};
   Dungeon _dungeon;
-  late MovementPlan _plan = MovementPlan.start(_dungeon);
+  late MovementPlan _plan = _newPlan();
+  final bool Function(InteractiveDungeonGroundObject object)
+  _requiresConfirmation;
+  final _interactionQueue = Queue<GroundObjectInteractionRequest>();
+  GroundObjectInteractionRequest? _pendingInteraction;
   MovementPhase _phase = MovementPhase.idle;
   Timer? _movementTimer;
   int _nextStep = 0;
   bool _isSelected = false;
   bool _isPaused = false;
+  bool _isInteracting = false;
+  FloorChangeRequest? _pendingFloorChange;
 
-  DungeonController(this._dungeon);
+  DungeonController(
+    this._dungeon, {
+    bool Function(InteractiveDungeonGroundObject object)? requiresConfirmation,
+  }) : _requiresConfirmation =
+           requiresConfirmation ?? _defaultConfirmationPolicy {
+    _interactAtPlayer();
+  }
+
+  static bool _defaultConfirmationPolicy(
+    InteractiveDungeonGroundObject object,
+  ) => false;
+
+  MovementPlan _newPlan() => MovementPlan.start(
+    _dungeon,
+    additionalStop: (position) => _dungeon.floor
+        .interactiveObjectsAt(position)
+        .any(_requiresConfirmation),
+  );
 
   Dungeon get dungeon => _dungeon;
   MovementPlan get plan => _plan;
@@ -35,7 +63,152 @@ class DungeonController extends ChangeNotifier {
           _phase == MovementPhase.awaitingConfirmation);
   bool get isSelected => _isSelected;
   bool get isPaused => _isPaused;
-  bool get isBottomMenuEnabled => !_isPaused && _bottomMenuLocks.isEmpty;
+  bool get isBottomMenuEnabled =>
+      !_isPaused &&
+      _pendingFloorChange == null &&
+      _pendingInteraction == null &&
+      _bottomMenuLocks.isEmpty;
+  FloorChangeRequest? get pendingFloorChange => _pendingFloorChange;
+  GroundObjectInteractionRequest? get pendingInteraction => _pendingInteraction;
+
+  bool completeFloorChange(DungeonFloor floor) {
+    final request = _pendingFloorChange;
+    if (isMoving ||
+        _pendingInteraction != null ||
+        request == null ||
+        request.floorNumber != floor.number ||
+        request.sourceFloorNumber != _dungeon.floor.number ||
+        request.sourcePosition != _dungeon.player) {
+      return false;
+    }
+
+    _dungeon = _dungeon.enterFloor(floor);
+    _pendingFloorChange = null;
+    _interactionQueue.clear();
+    _phase = MovementPhase.idle;
+    _nextStep = 0;
+    _isSelected = false;
+    _interactAtPlayer();
+    _plan = _newPlan();
+    notifyListeners();
+    return true;
+  }
+
+  /// Permite activar el mismo comportamiento desde menús, toques u otras acciones.
+  /// Los objetos retirados, de otra planta o durante una acción bloqueada se ignoran.
+  bool interactWith(InteractiveDungeonGroundObject object) {
+    if (!isBottomMenuEnabled || isMoving || _isInteracting) {
+      return false;
+    }
+    if (!_invokeInteraction(object, GroundObjectTrigger.activated)) {
+      return false;
+    }
+
+    _phase = MovementPhase.idle;
+    _plan = _newPlan();
+    notifyListeners();
+    return true;
+  }
+
+  bool _interactAtPlayer() {
+    final objects = _dungeon.floor
+        .interactiveObjectsAt(_dungeon.player)
+        .toList();
+    for (final object in objects) {
+      _interactionQueue.add(
+        GroundObjectInteractionRequest(
+          object: object,
+          trigger: GroundObjectTrigger.enteredTile,
+          floorNumber: _dungeon.floor.number,
+          playerPosition: _dungeon.player,
+        ),
+      );
+    }
+    return _resolveInteractionQueue();
+  }
+
+  bool _resolveInteractionQueue() {
+    var stopsMovement = false;
+    while (_interactionQueue.isNotEmpty) {
+      final request = _interactionQueue.first;
+      if (!request.isValidFor(_dungeon)) {
+        _interactionQueue.removeFirst();
+        continue;
+      }
+      if (_requiresConfirmation(request.object)) {
+        _pendingInteraction = request;
+        return true;
+      }
+      _interactionQueue.removeFirst();
+      if (_invokeInteraction(request.object, request.trigger)) {
+        stopsMovement = stopsMovement || request.object.stopsMovement;
+      }
+    }
+    return stopsMovement || _pendingFloorChange != null;
+  }
+
+  /// La respuesta consume la petición; no se vuelve a preguntar hasta otra entrada.
+  bool respondToInteraction({
+    required GroundObjectInteractionRequest request,
+    required bool accept,
+  }) {
+    if (!identical(request, _pendingInteraction)) {
+      return false;
+    }
+    _pendingInteraction = null;
+    _interactionQueue.removeFirst();
+    if (accept && request.isValidFor(_dungeon)) {
+      _invokeInteraction(request.object, request.trigger);
+    }
+    _resolveInteractionQueue();
+    _phase = MovementPhase.idle;
+    _plan = _newPlan();
+    notifyListeners();
+    return true;
+  }
+
+  bool _invokeInteraction(
+    InteractiveDungeonGroundObject object,
+    GroundObjectTrigger trigger,
+  ) {
+    if (_isInteracting || !_dungeon.floor.groundObjects.contains(object)) {
+      return false;
+    }
+
+    _isInteracting = true;
+    try {
+      object.onInteract(
+        GroundObjectInteractionContext(
+          object: object,
+          trigger: trigger,
+          readDungeon: () => _dungeon,
+          updateDungeon: _updateFromInteraction,
+          requestFloorChange: _requestFloorChange,
+        ),
+      );
+    } finally {
+      _isInteracting = false;
+    }
+    return true;
+  }
+
+  void _updateFromInteraction(Dungeon dungeon) {
+    if (dungeon.floor.number != _dungeon.floor.number ||
+        dungeon.player != _dungeon.player) {
+      throw ArgumentError(
+        'Interactions must request scene changes instead of moving the player directly.',
+      );
+    }
+    _dungeon = dungeon;
+  }
+
+  void _requestFloorChange(int floorNumber) {
+    _pendingFloorChange ??= FloorChangeRequest(
+      floorNumber: floorNumber,
+      sourceFloorNumber: _dungeon.floor.number,
+      sourcePosition: _dungeon.player,
+    );
+  }
 
   /// Bloquea el menú hasta que el mismo propietario libere su motivo.
   /// Cada acción usa su propio token; adquirirlo de nuevo no duplica el bloqueo.
@@ -76,7 +249,7 @@ class DungeonController extends ChangeNotifier {
     _nextStep = 0;
     _isSelected = false;
     _phase = MovementPhase.idle;
-    _plan = MovementPlan.start(_dungeon);
+    _plan = _newPlan();
     notifyListeners();
   }
 
@@ -115,7 +288,7 @@ class DungeonController extends ChangeNotifier {
       return;
     }
 
-    _plan = MovementPlan.start(_dungeon);
+    _plan = _newPlan();
     _phase = MovementPhase.dragging;
     notifyListeners();
   }
@@ -158,7 +331,7 @@ class DungeonController extends ChangeNotifier {
       return;
     }
 
-    _plan = MovementPlan.start(_dungeon);
+    _plan = _newPlan();
     _phase = MovementPhase.idle;
     notifyListeners();
   }
@@ -177,11 +350,12 @@ class DungeonController extends ChangeNotifier {
   void _advance() {
     _dungeon = _dungeon.stepTo(_plan.path[_nextStep]);
     _nextStep++;
-    if (_nextStep == _plan.path.length) {
+    final interactionStopsMovement = _interactAtPlayer();
+    if (_nextStep == _plan.path.length || interactionStopsMovement) {
       _movementTimer?.cancel();
       _movementTimer = null;
       _phase = MovementPhase.idle;
-      _plan = MovementPlan.start(_dungeon);
+      _plan = _newPlan();
       enableBottomMenu(_movementMenuLock);
       return;
     }

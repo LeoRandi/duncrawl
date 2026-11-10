@@ -1,11 +1,14 @@
 # Crear una planta
 
 Cada planta se define con una plantilla en `lib/features/dungeon/floors/`.
-La planta inicial está en `floor_0.dart`.
+La planta inicial está en `floor_0.dart`; la segunda está en `floor_1.dart`.
 
-1. Duplica `floor_0.dart` como `floor_1.dart`.
-2. Cambia el nombre de la constante a `floor1` y `number` a `1`.
+1. Duplica una plantilla existente, por ejemplo `floor_1.dart` como `floor_2.dart`.
+2. Cambia el nombre de la constante a `floor2` y `number` a `2`.
 3. Edita las filas: siempre deben ser **15 filas de 15 símbolos**.
+4. Registra la nueva plantilla en el mapa de `dungeon_floors.dart`.
+5. Define la escalera como `InteractiveDungeonGroundObject` y enlázala con un
+   callback que llame a `context.requestFloorChange(2)`.
 
 | Símbolo | Significado |
 |---|---|
@@ -18,9 +21,11 @@ La planta inicial está en `floor_0.dart`.
 
 1. **Fondo o vacío**: negro puro (`#000000`) por defecto.
 2. **Suelo**: las filas de `rows`; las casillas transitables son gris oscuro
-   (`#303030`). Las marcas blancas de la ruta de movimiento se dibujan sobre este suelo.
-3. **Objetos sobre el suelo**: `groundObjects`. La escalera pertenece a esta capa,
-   no al tipo de suelo. En el futuro podrán incorporarse hierba, objetos o trampas.
+   (`#303030`). Las paredes usan un gris más claro (`#606060`), bloquean el paso y
+   se unen sin líneas entre paredes adyacentes. Las marcas blancas de la ruta de
+   movimiento se dibujan sobre el suelo.
+3. **Objetos sobre el suelo**: `groundObjects`. La escalera y la hierba pertenecen
+   a esta capa, no al tipo de suelo. Otros objetos y trampas usan la misma capa.
 4. **Personajes**: su posición y estado durante la partida. Ahora solo el protagonista.
    El símbolo `@` define dónde aparece; no dibuja un segundo personaje estático.
 5. **Objetos sobre los personajes**: capa reservada y vacía por ahora.
@@ -29,16 +34,25 @@ La planta inicial está en `floor_0.dart`.
 Para añadir una escalera, conserva un `.` en la casilla y añade un objeto:
 
 ```dart
-groundObjects: [
-  DungeonGroundObject(
-    type: GroundObjectType.stairsUp,
-    position: GridPosition(7, 1),
-  ),
-],
+const upstairs = InteractiveDungeonGroundObject(
+  type: GroundObjectType.stairsUp,
+  position: GridPosition(7, 1),
+  stopsMovement: true,
+  interactionKind: GroundObjectInteractionKind.stairs,
+  onInteract: goUpstairs,
+);
+
+// La función puede referenciarse desde una plantilla const.
+void goUpstairs(GroundObjectInteractionContext context) {
+  context.requestFloorChange(1);
+}
 ```
 
+Incluye `upstairs` en la lista `groundObjects` de la plantilla.
+
 Las coordenadas de objetos empiezan en cero: primero columna y después fila.
-La plantilla importa `dungeon_floor.dart` y `grid_position.dart`. Los objetos deben
+La plantilla importa `dungeon_floor.dart`, `grid_position.dart` y, para callbacks,
+`ground_object_interaction_context.dart`. Los objetos deben
 estar dentro del tablero, sobre suelo transitable; pueden compartir una casilla.
 El antiguo símbolo `S` ya no se usa en `rows`.
 
@@ -49,12 +63,84 @@ La aparición central de una cuadrícula de 15 × 15 está en la fila 8, columna
 La plantilla se valida al llamar a `create()`. Los símbolos desconocidos, tamaños
 incorrectos y apariciones ausentes o duplicadas generan un `FormatException`.
 
-Para probar otra planta como inicio, importa su fichero en `dungeon_page.dart`
-y sustituye `Dungeon.start(floor0.create())` por
-`Dungeon.start(floor1.create())`. Las transiciones entre plantas aún no están
-implementadas; la escalera es un marcador visual.
+Los objetos interactivos con `stopsMovement: true` terminan la ruta en su casilla,
+sin ejecutar callbacks durante la previsualización. Al llegar a una escalera,
+la transición circular se cierra sobre el personaje, cambia de planta en negro y
+se abre sobre la nueva aparición. Se conservan su nivel, HP y velocidad, y se
+reinician la selección y la ruta. Los controles permanecen bloqueados durante la
+transición. El tutorial inicial no vuelve a reproducirse al subir.
 
-La planta 0 contiene 225 casillas de suelo gris oscuro, la aparición central y
-una escalera en la tercera capa, cerca del centro superior. El fondo negro está
-detrás del suelo; las capas quinta y sexta están vacías. Los gráficos actuales
-son colores planos e iconos.
+Una escalera definida como `DungeonGroundObject` sigue siendo un marcador
+transitable sin interacción; así se ha dejado la de la planta 1 hasta crear la
+siguiente planta. Su aspecto no determina su comportamiento.
+
+## Interacciones reutilizables
+
+`InteractiveDungeonGroundObject` hereda la posición y el tipo visual de
+`DungeonGroundObject` y añade `onInteract`, `stopsMovement` (false por defecto) e
+`interactionKind` (`generic` por defecto). El tipo visual no decide la interacción.
+El callback es síncrono y recibe `GroundObjectInteractionContext`:
+
+- `object` identifica el objeto que lo ha disparado.
+- `trigger` distingue `enteredTile` de `activated`.
+- `dungeon` consulta el estado actual, incluso tras otros cambios del mismo callback.
+- `updateDungeon` aplica cambios de estado en la misma planta y casilla.
+- `requestFloorChange` solicita un cambio de escena para que la presentación
+  conserve la transición circular. El objeto no importa Flutter ni conoce animaciones.
+
+El controlador ejecuta los callbacks al entrar en una casilla y al aparecer en una
+planta. `interactWith(object)` permite reutilizarlos desde otra acción, como un toque
+o un menú; la pantalla decide cuándo ofrecer esa acción. Se ignoran las activaciones
+explícitas durante bloqueos y las de objetos que ya no pertenecen a la planta.
+Las selecciones, pausas y previsualizaciones no vuelven a activar los objetos.
+
+## Interacciones automáticas y confirmaciones
+
+Los ajustes `Auto-climb stairs` y `Auto-pick-up items` están activados por defecto
+y se conservan entre menú y partida durante la sesión. Usa `interactionKind: stairs`
+para las escaleras y `interactionKind: pickup` para futuras recogidas. Las acciones
+`generic`, como los efectos de una trampa, no dependen de esos dos ajustes.
+
+Con la automatización desactivada, la ruta termina sobre el objeto y se encola una
+`GroundObjectInteractionRequest` sin ejecutar su callback. La ventana compartida
+pregunta Yes/No y bloquea el juego hasta terminar su salida. Yes ejecuta el callback;
+No deja intactos el objeto y el estado de la planta. No se repite la pregunta al
+seleccionar, pausar o cambiar ajustes: el personaje debe salir y volver a entrar.
+La casilla de origen puede abandonarse aunque el objeto siga en ella.
+
+La respuesta usa la identidad de la petición para que un toque repetido no acepte
+otro objeto de la misma casilla. Las peticiones comparten la cola ordenada de
+interacciones: cada objeto se confirma por separado y los retirados se omiten.
+Las activaciones explícitas con `interactWith` siguen reutilizando el callback.
+
+Los objetos de una misma casilla se resuelven en el orden de `groundObjects`, con el
+estado actualizado. Si un callback retira un objeto pendiente, este ya no se ejecuta.
+Por ejemplo, un callback consumible puede retirar su propio objeto:
+
+```dart
+void consumeObject(GroundObjectInteractionContext context) {
+  context.updateDungeon(context.dungeon.removeGroundObject(context.object));
+}
+```
+
+Un efecto puede actualizar al personaje con `Dungeon.withAdventurer` y
+`Adventurer.copyWith`. Esto permite reutilizar el mecanismo para recogidas o trampas
+cuando se implementen sus reglas específicas, sin añadir campos de destino ni casos
+por tipo visual al controlador.
+
+## Hierba
+
+`DungeonGroundObject.grass(GridPosition(columna, fila))` es un objeto normal y
+transitable. Se dibuja como una `g` gris claro (`#B0B0B0`) sin escalarla con el texto
+de la interfaz. No se recoge ni activa callbacks. La planta 1 usa una lista const
+de 49 casillas conectadas desde el centro hacia las cuatro esquinas interiores,
+respetando paredes y dejando libres la aparición y la escalera.
+
+Ambas plantas tienen 56 casillas de pared en el perímetro. La planta 0 conserva
+169 casillas de suelo interior; la planta 1 también incluye paredes interiores.
+La planta 0 conserva la aparición central `(7, 7)` y la escalera superior `(7, 1)`,
+que conduce a la planta 1. Esta empieza en la zona inferior derecha y sitúa su
+escalera en la zona superior izquierda. Sus posiciones concretas se editan con
+`@` y `groundObjects` en la plantilla.
+Las capas quinta y sexta siguen vacías; los gráficos actuales son colores planos
+e iconos.

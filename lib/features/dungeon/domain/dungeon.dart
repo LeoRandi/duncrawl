@@ -31,6 +31,18 @@ class Dungeon {
     required this.adventurer,
   });
 
+  Dungeon enterFloor(DungeonFloor destination) =>
+      Dungeon.start(destination, adventurer: adventurer);
+
+  Dungeon withAdventurer(Adventurer adventurer) =>
+      Dungeon._(floor: floor, player: player, adventurer: adventurer);
+
+  Dungeon removeGroundObject(DungeonGroundObject object) => Dungeon._(
+    floor: floor.removeGroundObject(object),
+    player: player,
+    adventurer: adventurer,
+  );
+
   /// Avanza por un único eje hasta completar los pasos, una pared o el borde.
   /// Los pasos nulos o negativos no cambian la posición.
   Dungeon move(DungeonDirection direction, {int steps = 1}) {

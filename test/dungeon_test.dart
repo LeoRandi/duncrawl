@@ -25,10 +25,10 @@ void main() {
     test('Clamps long movements at every boundary', () {
       final dungeon = Dungeon.start(floor0.create());
       const destinations = {
-        DungeonDirection.north: GridPosition(7, 0),
-        DungeonDirection.east: GridPosition(14, 7),
-        DungeonDirection.south: GridPosition(7, 14),
-        DungeonDirection.west: GridPosition(0, 7),
+        DungeonDirection.north: GridPosition(7, 1),
+        DungeonDirection.east: GridPosition(13, 7),
+        DungeonDirection.south: GridPosition(7, 13),
+        DungeonDirection.west: GridPosition(1, 7),
       };
       for (final entry in destinations.entries) {
         final atEdge = dungeon.move(entry.key, steps: 100);
@@ -109,7 +109,7 @@ void main() {
       }
     });
 
-    test('Floor 0 is empty apart from the upper stairs', () {
+    test('Floor 0 has an empty interior, boundary walls and upper stairs', () {
       final floor = floor0.create();
       expect(floor.number, 0);
       expect(floor.spawn, const GridPosition(7, 7));
@@ -125,7 +125,7 @@ void main() {
           }
         }
       }
-      expect(emptyTiles, 225);
+      expect(emptyTiles, 169);
     });
 
     test(

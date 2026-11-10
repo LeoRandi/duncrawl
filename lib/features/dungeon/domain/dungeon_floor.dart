@@ -1,14 +1,34 @@
 import 'grid_position.dart';
+import 'ground_object_interaction_context.dart';
 
 enum DungeonTile { voidTile, floor, wall }
 
-enum GroundObjectType { stairsUp }
+enum GroundObjectType { stairsUp, grass }
+
+enum GroundObjectInteractionKind { generic, stairs, pickup }
 
 class DungeonGroundObject {
   final GroundObjectType type;
   final GridPosition position;
 
   const DungeonGroundObject({required this.type, required this.position});
+
+  const DungeonGroundObject.grass(this.position)
+    : type = GroundObjectType.grass;
+}
+
+class InteractiveDungeonGroundObject extends DungeonGroundObject {
+  final void Function(GroundObjectInteractionContext context) onInteract;
+  final bool stopsMovement;
+  final GroundObjectInteractionKind interactionKind;
+
+  const InteractiveDungeonGroundObject({
+    required super.type,
+    required super.position,
+    required this.onInteract,
+    this.stopsMovement = false,
+    this.interactionKind = GroundObjectInteractionKind.generic,
+  });
 }
 
 class DungeonFloorTemplate {
@@ -90,6 +110,35 @@ class DungeonFloor {
 
   DungeonTile tileAt(GridPosition position) =>
       _tiles[position.row * size + position.column];
+
+  Iterable<InteractiveDungeonGroundObject> interactiveObjectsAt(
+    GridPosition position,
+  ) sync* {
+    for (final object in groundObjects) {
+      if (object is InteractiveDungeonGroundObject &&
+          object.position == position) {
+        yield object;
+      }
+    }
+  }
+
+  bool stopsMovementAt(GridPosition position) =>
+      interactiveObjectsAt(position).any((object) => object.stopsMovement);
+
+  DungeonFloor removeGroundObject(DungeonGroundObject object) {
+    if (!groundObjects.contains(object)) {
+      return this;
+    }
+
+    return DungeonFloor._(
+      number: number,
+      spawn: spawn,
+      tiles: _tiles,
+      groundObjects: List.unmodifiable(
+        groundObjects.where((other) => other != object),
+      ),
+    );
+  }
 
   bool canEnter(GridPosition position) {
     if (position.column < 0 ||

@@ -17,6 +17,8 @@ void main() {
       expect(_slider(tester, 'movement-sensitivity-slider').value, 4);
       expect(_slider(tester, 'text-speed-slider').value, 1);
       expect(find.text('Text speed: Medium'), findsOneWidget);
+      expect(_switch(tester, 'auto-climb-stairs-switch').value, isTrue);
+      expect(_switch(tester, 'auto-pick-up-items-switch').value, isTrue);
       await _selectSpeed(tester, TextSpeed.fast);
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
@@ -28,6 +30,8 @@ void main() {
           .value;
       expect(settings.dragDistanceMultiplier, 2);
       expect(settings.textSpeed, TextSpeed.fast);
+      expect(settings.autoClimbStairs, isTrue);
+      expect(settings.autoPickUpItems, isTrue);
       await tester.pump(const Duration(seconds: 1));
       expect(find.byType(DialogueWindow), findsOneWidget);
       expect(_visibleText(tester), '');
@@ -45,6 +49,8 @@ void main() {
       await tester.pumpWidget(const DungeonCrawlerApp());
       await _openSettings(tester);
       await _selectSpeed(tester, TextSpeed.instant);
+      await _toggleSetting(tester, 'auto-climb-stairs-switch');
+      await _toggleSetting(tester, 'auto-pick-up-items-switch');
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Start'));
@@ -57,12 +63,15 @@ void main() {
       await tester.pumpAndSettle();
       await _openSettings(tester);
       expect(find.text('Text speed: Instant'), findsOneWidget);
+      expect(_switch(tester, 'auto-climb-stairs-switch').value, isFalse);
+      expect(_switch(tester, 'auto-pick-up-items-switch').value, isFalse);
       await _selectSpeed(tester, TextSpeed.slow);
       await tester.drag(
         find.byKey(const ValueKey('movement-sensitivity-slider')),
         const Offset(-300, 0),
       );
       await tester.pumpAndSettle();
+      await _toggleSetting(tester, 'auto-climb-stairs-switch');
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Main menu'));
@@ -71,6 +80,8 @@ void main() {
       expect(_slider(tester, 'movement-sensitivity-slider').value, 1);
       expect(_slider(tester, 'text-speed-slider').value, 0);
       expect(find.text('Text speed: Slow'), findsOneWidget);
+      expect(_switch(tester, 'auto-climb-stairs-switch').value, isTrue);
+      expect(_switch(tester, 'auto-pick-up-items-switch').value, isFalse);
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Start'));
@@ -81,6 +92,8 @@ void main() {
           .value;
       expect(settings.dragDistanceMultiplier, 5);
       expect(settings.textSpeed, TextSpeed.slow);
+      expect(settings.autoClimbStairs, isTrue);
+      expect(settings.autoPickUpItems, isFalse);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
@@ -91,15 +104,19 @@ void main() {
     await tester.pumpWidget(const DungeonCrawlerApp());
     await _openSettings(tester);
     await _selectSpeed(tester, TextSpeed.instant);
+    await _toggleSetting(tester, 'auto-climb-stairs-switch');
+    await _toggleSetting(tester, 'auto-pick-up-items-switch');
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await _openSettings(tester);
     expect(_slider(tester, 'text-speed-slider').value, 1);
     expect(_slider(tester, 'movement-sensitivity-slider').value, 4);
+    expect(_switch(tester, 'auto-climb-stairs-switch').value, isTrue);
+    expect(_switch(tester, 'auto-pick-up-items-switch').value, isTrue);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('Both sliders fit small screens with larger text', (
+  testWidgets('Sliders and switches fit small screens with larger text', (
     tester,
   ) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -111,6 +128,8 @@ void main() {
       await tester.pumpWidget(const DungeonCrawlerApp());
       await _openSettings(tester);
       expect(find.byType(Slider), findsNWidgets(2));
+      expect(find.byType(SwitchListTile), findsNWidgets(2));
+      await _toggleSetting(tester, 'auto-pick-up-items-switch');
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
@@ -139,6 +158,16 @@ Future<void> _selectSpeed(WidgetTester tester, TextSpeed speed) async {
 
 Slider _slider(WidgetTester tester, String key) =>
     tester.widget<Slider>(find.byKey(ValueKey(key)));
+
+SwitchListTile _switch(WidgetTester tester, String key) =>
+    tester.widget<SwitchListTile>(find.byKey(ValueKey(key)));
+
+Future<void> _toggleSetting(WidgetTester tester, String key) async {
+  final setting = find.byKey(ValueKey(key));
+  await tester.ensureVisible(setting);
+  await tester.tap(setting);
+  await tester.pumpAndSettle();
+}
 
 String _visibleText(WidgetTester tester) => tester
     .widget<Semantics>(find.byKey(const ValueKey('dialogue-text')))

@@ -1,7 +1,7 @@
 name: duncrawl
 description: "Dungeon Crawler 0, a mobile dungeon crawling adventure."
 
-version: 0.0.5
+version: 0.0.6
 
 environment:
   sdk: ^3.9.2

@@ -81,6 +81,25 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
               minimum: DungeonStrings.slowText,
               maximum: DungeonStrings.instantText,
             ),
+            const SizedBox(height: DungeonTheme.spacing * 3),
+            SwitchListTile(
+              key: const ValueKey('auto-climb-stairs-switch'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text(DungeonStrings.autoClimbStairs),
+              value: _settings.autoClimbStairs,
+              onChanged: (value) => setState(() {
+                _settings = _settings.copyWith(autoClimbStairs: value);
+              }),
+            ),
+            SwitchListTile(
+              key: const ValueKey('auto-pick-up-items-switch'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text(DungeonStrings.autoPickUpItems),
+              value: _settings.autoPickUpItems,
+              onChanged: (value) => setState(() {
+                _settings = _settings.copyWith(autoPickUpItems: value);
+              }),
+            ),
           ],
         ),
       ),

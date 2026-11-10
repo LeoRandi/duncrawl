@@ -90,6 +90,19 @@ class DungeonBoard extends StatelessWidget {
                           color: DungeonColors.textSecondary,
                           semanticLabel: DungeonStrings.stairs,
                         ),
+                        GroundObjectType.grass => Center(
+                          child: Text(
+                            'g',
+                            key: ValueKey(('grass', object.position)),
+                            semanticsLabel: DungeonStrings.grass,
+                            textScaler: TextScaler.noScaling,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: tileSize * 0.8,
+                              color: DungeonColors.grass,
+                            ),
+                          ),
+                        ),
                       },
                     ),
                 ],
@@ -169,8 +182,12 @@ class _DungeonGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final tileSize = size.width / DungeonFloor.size;
-    final floorPaint = Paint()..color = DungeonColors.floorTile;
-    final wallPaint = Paint()..color = DungeonColors.surfaceRaised;
+    final floorPaint = Paint()
+      ..color = DungeonColors.floorTile
+      ..isAntiAlias = false;
+    final wallPaint = Paint()
+      ..color = DungeonColors.wallTile
+      ..isAntiAlias = false;
     for (var row = 0; row < DungeonFloor.size; row++) {
       for (var column = 0; column < DungeonFloor.size; column++) {
         final paint = switch (floor.tileAt(GridPosition(column, row))) {
@@ -196,14 +213,37 @@ class _DungeonGridPainter extends CustomPainter {
       ..color = DungeonColors.voidTile
       ..strokeWidth = 1
       ..isAntiAlias = false;
-    for (var index = 0; index <= DungeonFloor.size; index++) {
-      final offset = index * tileSize;
-      canvas.drawLine(
-        Offset(offset, 0),
-        Offset(offset, size.height),
-        gridPaint,
-      );
-      canvas.drawLine(Offset(0, offset), Offset(size.width, offset), gridPaint);
+    for (var row = 0; row <= DungeonFloor.size; row++) {
+      for (var column = 0; column < DungeonFloor.size; column++) {
+        final joinsWalls =
+            row > 0 &&
+            row < DungeonFloor.size &&
+            floor.tileAt(GridPosition(column, row - 1)) == DungeonTile.wall &&
+            floor.tileAt(GridPosition(column, row)) == DungeonTile.wall;
+        if (!joinsWalls) {
+          canvas.drawLine(
+            Offset(column * tileSize, row * tileSize),
+            Offset((column + 1) * tileSize, row * tileSize),
+            gridPaint,
+          );
+        }
+      }
+    }
+    for (var column = 0; column <= DungeonFloor.size; column++) {
+      for (var row = 0; row < DungeonFloor.size; row++) {
+        final joinsWalls =
+            column > 0 &&
+            column < DungeonFloor.size &&
+            floor.tileAt(GridPosition(column - 1, row)) == DungeonTile.wall &&
+            floor.tileAt(GridPosition(column, row)) == DungeonTile.wall;
+        if (!joinsWalls) {
+          canvas.drawLine(
+            Offset(column * tileSize, row * tileSize),
+            Offset(column * tileSize, (row + 1) * tileSize),
+            gridPaint,
+          );
+        }
+      }
     }
   }
 

@@ -12,6 +12,7 @@ import '../domain/adventurer.dart';
 import '../domain/dungeon.dart';
 import '../domain/dungeon_floor.dart';
 import '../floors/floor_0.dart';
+import '../floors/dungeon_floors.dart';
 import '../../settings/domain/game_settings.dart';
 import '../../settings/presentation/game_settings_dialog.dart';
 import 'cardinal_drag.dart';
@@ -22,6 +23,7 @@ import '../../tutorial/presentation/tutorial_controller.dart';
 import 'movement_menu.dart';
 import 'opening_tutorial.dart';
 import 'game_menu_dialog.dart';
+import 'ground_object_confirmation_dialog.dart';
 import 'selection_frame.dart';
 import 'adventurer_information.dart';
 import '../../tutorial/presentation/tutorial_spotlight.dart';
@@ -46,12 +48,17 @@ class DungeonPage extends StatefulWidget {
 
 class _DungeonPageState extends State<DungeonPage> {
   final _drag = CardinalDrag();
-  final _controller = DungeonController(Dungeon.start(floor0.create()));
+  late final _controller = DungeonController(
+    Dungeon.start(floor0.create()),
+    requiresConfirmation: _requiresInteractionConfirmation,
+  );
   final _tutorial = TutorialController(OpeningTutorial.guide);
   late final _playerAnchorKey =
       widget.playerAnchorKey ??
       GlobalKey(debugLabel: 'player-transition-anchor');
   bool _isLeaving = false;
+  bool _isChangingFloor = false;
+  bool _isConfirmingInteraction = false;
   final _movementMenuKey = GlobalKey(debugLabel: 'dialogue-menu-anchor');
   final _portraitAnchorKey = GlobalKey(debugLabel: 'tutorial-portrait');
   final _gridAnchorKey = GlobalKey(debugLabel: 'tutorial-grid');
@@ -65,6 +72,16 @@ class _DungeonPageState extends State<DungeonPage> {
   };
   Timer? _tutorialTimer;
   bool _wasMoving = false;
+
+  bool _requiresInteractionConfirmation(
+    InteractiveDungeonGroundObject object,
+  ) => switch (object.interactionKind) {
+    GroundObjectInteractionKind.generic => false,
+    GroundObjectInteractionKind.stairs =>
+      !widget.settings.value.autoClimbStairs,
+    GroundObjectInteractionKind.pickup =>
+      !widget.settings.value.autoPickUpItems,
+  };
 
   @override
   void initState() {
@@ -119,6 +136,76 @@ class _DungeonPageState extends State<DungeonPage> {
     if (finishedMoving) {
       _tutorial.signal(DungeonTutorialEvent.movementFinished);
     }
+    if (_tutorial.isComplete && !_controller.isMoving) {
+      if (_controller.pendingInteraction != null) {
+        unawaited(_confirmInteraction());
+      } else if (_controller.pendingFloorChange != null) {
+        unawaited(_changeFloor());
+      }
+    }
+  }
+
+  Future<void> _confirmInteraction() async {
+    final request = _controller.pendingInteraction;
+    if (request == null ||
+        _isConfirmingInteraction ||
+        _isChangingFloor ||
+        _isLeaving ||
+        IrisTransition.isRunning(context)) {
+      return;
+    }
+
+    setState(() => _isConfirmingInteraction = true);
+    _controller.pause();
+    try {
+      final accepted = await showGroundObjectConfirmation(
+        context,
+        interactionKind: request.object.interactionKind,
+      );
+      if (mounted && !_isLeaving) {
+        _controller.respondToInteraction(request: request, accept: accepted);
+      }
+    } finally {
+      if (mounted && !_isLeaving) {
+        setState(() => _isConfirmingInteraction = false);
+        _controller.resume();
+      }
+    }
+  }
+
+  Future<void> _changeFloor() async {
+    final destination =
+        dungeonFloors[_controller.pendingFloorChange?.floorNumber];
+    if (destination == null ||
+        _isChangingFloor ||
+        _isConfirmingInteraction ||
+        _controller.pendingInteraction != null ||
+        _isLeaving ||
+        IrisTransition.isRunning(context)) {
+      return;
+    }
+
+    final nextFloor = destination.create();
+    setState(() => _isChangingFloor = true);
+    _controller.pause();
+    try {
+      // La casilla de llegada debe haberse dibujado antes de centrar el cierre.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) {
+        return;
+      }
+      await IrisTransition.run(
+        context,
+        closingCenter: IrisTransition.centerOf(_playerAnchorKey),
+        onCovered: () => _controller.completeFloorChange(nextFloor),
+        openingCenter: () => IrisTransition.centerOf(_playerAnchorKey),
+      );
+    } finally {
+      if (mounted && !_isLeaving) {
+        setState(() => _isChangingFloor = false);
+        _controller.resume();
+      }
+    }
   }
 
   void _selectCharacter() {
@@ -133,6 +220,8 @@ class _DungeonPageState extends State<DungeonPage> {
 
   Future<void> _returnToMainMenu(Offset closingCenter) async {
     if (!_tutorial.allows(DungeonTutorialControl.menu) ||
+        _isChangingFloor ||
+        _isConfirmingInteraction ||
         _isLeaving ||
         IrisTransition.isRunning(context)) {
       return;
@@ -230,7 +319,10 @@ class _DungeonPageState extends State<DungeonPage> {
       fit: StackFit.expand,
       children: [
         InteractionGate(
-          enabled: _tutorial.allowsInput,
+          enabled:
+              _tutorial.allowsInput &&
+              !_isChangingFloor &&
+              !_isConfirmingInteraction,
           child: Scaffold(
             body: SafeArea(
               child: Center(

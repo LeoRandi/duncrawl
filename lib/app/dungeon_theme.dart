@@ -6,6 +6,8 @@ abstract final class DungeonColors {
   static const panel = voidTile;
   static const surface = voidTile;
   static const floorTile = Color(0xFF303030);
+  static const wallTile = Color(0xFF606060);
+  static const grass = Color(0xFFB0B0B0);
   static const primary = Color(0xFFFFFFFF);
   static const surfaceRaised = primary;
   static const textPrimary = primary;

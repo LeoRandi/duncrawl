@@ -5,10 +5,16 @@ import 'grid_position.dart';
 class MovementPlan {
   final Dungeon dungeon;
   final List<GridPosition> path;
+  final bool Function(GridPosition position)? additionalStop;
 
-  const MovementPlan.start(this.dungeon) : path = const [];
+  const MovementPlan.start(this.dungeon, {this.additionalStop})
+    : path = const [];
 
-  const MovementPlan._({required this.dungeon, required this.path});
+  const MovementPlan._({
+    required this.dungeon,
+    required this.path,
+    this.additionalStop,
+  });
 
   GridPosition get destination => path.isEmpty ? dungeon.player : path.last;
 
@@ -28,7 +34,11 @@ class MovementPlan {
         updatedPath.removeLast();
         continue;
       }
+      // Tras rechazar una interacción, se permite abandonar la casilla de origen.
       if (updatedPath.length >= dungeon.adventurer.movementSpeed ||
+          (updatedPath.isNotEmpty &&
+              (dungeon.floor.stopsMovementAt(current) ||
+                  (additionalStop?.call(current) ?? false))) ||
           !dungeon.floor.canEnter(next)) {
         break;
       }
@@ -42,6 +52,7 @@ class MovementPlan {
     return MovementPlan._(
       dungeon: dungeon,
       path: List.unmodifiable(updatedPath),
+      additionalStop: additionalStop,
     );
   }
 }

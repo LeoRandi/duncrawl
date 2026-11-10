@@ -4,6 +4,7 @@ abstract final class DungeonStrings {
   static const appTitle = 'Dungeon Crawler 0';
   static const adventurer = 'Adventurer';
   static const stairs = 'Stairs leading upstairs';
+  static const grass = 'Grass';
   static const grid = 'Dungeon, 15 by 15 tiles';
   static const emptyMenu = 'Empty option menu';
   static const start = 'Start';
@@ -11,6 +12,13 @@ abstract final class DungeonStrings {
   static const close = 'Close';
   static const mainMenu = 'Main menu';
   static const movementSensitivity = 'Movement sensitivity';
+  static const autoClimbStairs = 'Auto-climb stairs';
+  static const autoPickUpItems = 'Auto-pick-up items';
+  static const climbStairsQuestion = 'Climb the stairs?';
+  static const pickUpItemQuestion = 'Pick up this item?';
+  static const activateObjectQuestion = 'Activate this object?';
+  static const yes = 'Yes';
+  static const no = 'No';
   static const slowText = 'Slow';
   static const mediumText = 'Medium';
   static const fastText = 'Fast';

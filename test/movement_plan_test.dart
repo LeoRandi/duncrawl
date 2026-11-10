@@ -69,9 +69,9 @@ void main() {
     expect(east.remainingMovement, 19);
     expect(east.extend(DungeonDirection.east), same(east));
     final north = plan.extend(DungeonDirection.north, steps: 100);
-    expect(north.path.length, 7);
-    expect(north.destination, const GridPosition(7, 0));
-    expect(north.remainingMovement, 13);
+    expect(north.path.length, 6);
+    expect(north.destination, const GridPosition(7, 1));
+    expect(north.remainingMovement, 14);
   });
 
   test(
