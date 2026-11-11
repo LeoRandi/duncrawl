@@ -17,6 +17,11 @@ void main() {
       TileInspection(
         position: GridPosition(1, 1),
         tile: DungeonTile.floor,
+        object: DungeonGroundObject.shallowWater(GridPosition(1, 1)),
+      ),
+      TileInspection(
+        position: GridPosition(1, 1),
+        tile: DungeonTile.floor,
         object: DungeonGroundObject(
           type: GroundObjectType.stairsUp,
           position: GridPosition(1, 1),
@@ -61,11 +66,21 @@ void main() {
           expect(glyph.style?.color, DungeonColors.water);
           expect(glyph.textScaler, TextScaler.noScaling);
         }
+        if (inspection.object?.type == GroundObjectType.shallowWater) {
+          await tester.ensureVisible(
+            find.byKey(const ValueKey('tile-inspection-note')),
+          );
+          expect(
+            find.text('Shallow: This pool of liquid is walkable'),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        }
         await tester.ensureVisible(find.text('Unselect'));
         await tester.tap(find.text('Unselect'));
       }
     }
-    expect(unselected, 4);
+    expect(unselected, 6);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

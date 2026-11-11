@@ -114,12 +114,11 @@ void main() {
       addTearDown(nextController.dispose);
       expect(nextController.pendingFloorChange?.floorNumber, 2);
       expect(nextController.completeFloorChange(floor0.create()), isFalse);
-      final emptyFloor = floor2.create();
-      expect(nextController.completeFloorChange(emptyFloor), isTrue);
-      expect(nextController.dungeon.player, const GridPosition(7, 7));
+      final nextFloor = floor2.create();
+      expect(nextController.completeFloorChange(nextFloor), isTrue);
+      expect(nextController.dungeon.player, nextFloor.spawn);
       expect(nextController.dungeon.floor.number, 2);
       expect(nextController.dungeon.adventurer, same(adventurer));
-      expect(emptyFloor.groundObjects, isEmpty);
     },
   );
 

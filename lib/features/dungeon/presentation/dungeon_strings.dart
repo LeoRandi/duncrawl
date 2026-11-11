@@ -13,7 +13,12 @@ abstract final class DungeonStrings {
   static const grassDescription =
       'A patch of grass growing on the dungeon floor.';
   static const water = 'Water';
-  static const waterDescription = 'Deep water. You cannot walk through it.';
+  static const waterDescription =
+      'Water: liquid. Normally unwalkable, unless you fly';
+  static const shallowWater = 'Shallow Water';
+  static const shallowWaterDescription =
+      'Shallow: This pool of liquid is walkable';
+  static const bat = 'Bat';
   static const wall = 'Wall';
   static const wallDescription = 'A solid wall that blocks movement.';
   static const skipTutorials = 'Skip tutorials';

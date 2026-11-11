@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/dungeon_theme.dart';
 import '../domain/dungeon_floor.dart';
+import '../domain/dungeon_enemy.dart';
 import '../domain/grid_position.dart';
 import 'dungeon_strings.dart';
 import 'movement_preview.dart';
@@ -82,7 +83,8 @@ class DungeonBoard extends StatelessWidget {
                     for (var row = 0; row < DungeonFloor.size; row++)
                       for (var column = 0; column < DungeonFloor.size; column++)
                         if (floor.tileAt(GridPosition(column, row)) ==
-                            DungeonTile.water)
+                                DungeonTile.water &&
+                            !floor.hasShallowWaterAt(GridPosition(column, row)))
                           Positioned(
                             left: column * tileSize,
                             top: row * tileSize,
@@ -150,6 +152,15 @@ class DungeonBoard extends StatelessWidget {
                             color: DungeonColors.grass,
                             fontSize: tileSize * 0.8,
                           ),
+                          GroundObjectType.shallowWater => TileGlyph(
+                            key: ValueKey(('shallow-water', object.position)),
+                            symbol: 'w',
+                            prefix: 's',
+                            prefixColor: DungeonColors.shallowWaterPrefix,
+                            label: DungeonStrings.shallowWater,
+                            color: DungeonColors.water,
+                            fontSize: tileSize * 0.8,
+                          ),
                         },
                       ),
                   ],
@@ -159,6 +170,36 @@ class DungeonBoard extends StatelessWidget {
                 layer: DungeonLayer.characters,
                 child: Stack(
                   children: [
+                    for (final enemy in floor.enemies)
+                      Positioned(
+                        key: ValueKey(('enemy', enemy.position)),
+                        left: enemy.position.column * tileSize,
+                        top: enemy.position.row * tileSize,
+                        width: tileSize,
+                        height: tileSize,
+                        child: Semantics(
+                          button: true,
+                          selected: selectedTile == enemy.position,
+                          label: DungeonStrings.bat,
+                          onTap: onSelectTile == null
+                              ? null
+                              : () => onSelectTile?.call(enemy.position),
+                          child: Padding(
+                            padding: const EdgeInsets.all(1),
+                            child: ColoredBox(
+                              color: DungeonColors.floorTile,
+                              child: switch (enemy.type) {
+                                EnemyType.bat => TileGlyph(
+                                  symbol: 'B',
+                                  label: DungeonStrings.bat,
+                                  color: DungeonColors.enemy,
+                                  fontSize: tileSize * 0.8,
+                                ),
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
                     Positioned(
                       key: playerAnchorKey,
                       left: player.column * tileSize,
@@ -222,6 +263,8 @@ class _BoardLayer extends StatelessWidget {
       Positioned.fill(key: ValueKey(layer), child: child);
 }
 
+enum _WaterDepth { shallow, deep }
+
 class _DungeonGridPainter extends CustomPainter {
   final DungeonFloor floor;
 
@@ -267,8 +310,8 @@ class _DungeonGridPainter extends CustomPainter {
             row > 0 &&
             row < DungeonFloor.size &&
             _joinsTiles(
-              floor.tileAt(GridPosition(column, row - 1)),
-              floor.tileAt(GridPosition(column, row)),
+              GridPosition(column, row - 1),
+              GridPosition(column, row),
             );
         if (!joinsTiles) {
           canvas.drawLine(
@@ -285,8 +328,8 @@ class _DungeonGridPainter extends CustomPainter {
             column > 0 &&
             column < DungeonFloor.size &&
             _joinsTiles(
-              floor.tileAt(GridPosition(column - 1, row)),
-              floor.tileAt(GridPosition(column, row)),
+              GridPosition(column - 1, row),
+              GridPosition(column, row),
             );
         if (!joinsTiles) {
           canvas.drawLine(
@@ -297,19 +340,29 @@ class _DungeonGridPainter extends CustomPainter {
         }
       }
     }
-    // El contorno se dibuja al final para que la cuadrícula no lo corte.
-    _paintWaterOutline(canvas, tileSize);
+    // El borde profundo prevalece en el límite entre ambas profundidades.
+    _paintWaterOutline(canvas, tileSize: tileSize, depth: _WaterDepth.shallow);
+    _paintWaterOutline(canvas, tileSize: tileSize, depth: _WaterDepth.deep);
   }
 
-  bool _joinsTiles(DungeonTile first, DungeonTile second) =>
-      first == second &&
-      (first == DungeonTile.wall || first == DungeonTile.water);
+  bool _joinsTiles(GridPosition first, GridPosition second) {
+    final depth = _waterDepthAt(first.column, first.row);
+    if (depth != null) {
+      return depth == _waterDepthAt(second.column, second.row);
+    }
+    return floor.tileAt(first) == DungeonTile.wall &&
+        floor.tileAt(second) == DungeonTile.wall;
+  }
 
-  void _paintWaterOutline(Canvas canvas, double tileSize) {
+  void _paintWaterOutline(
+    Canvas canvas, {
+    required double tileSize,
+    required _WaterDepth depth,
+  }) {
     final outline = Path();
     for (var row = 0; row < DungeonFloor.size; row++) {
       for (var column = 0; column < DungeonFloor.size; column++) {
-        if (!_isWater(column, row)) {
+        if (_waterDepthAt(column, row) != depth) {
           continue;
         }
         final tile = Rect.fromLTWH(
@@ -318,19 +371,19 @@ class _DungeonGridPainter extends CustomPainter {
           tileSize,
           tileSize,
         );
-        if (!_isWater(column, row - 1)) {
+        if (_waterDepthAt(column, row - 1) != depth) {
           outline.moveTo(tile.left, tile.top);
           outline.lineTo(tile.right, tile.top);
         }
-        if (!_isWater(column + 1, row)) {
+        if (_waterDepthAt(column + 1, row) != depth) {
           outline.moveTo(tile.right, tile.top);
           outline.lineTo(tile.right, tile.bottom);
         }
-        if (!_isWater(column, row + 1)) {
+        if (_waterDepthAt(column, row + 1) != depth) {
           outline.moveTo(tile.left, tile.bottom);
           outline.lineTo(tile.right, tile.bottom);
         }
-        if (!_isWater(column - 1, row)) {
+        if (_waterDepthAt(column - 1, row) != depth) {
           outline.moveTo(tile.left, tile.top);
           outline.lineTo(tile.left, tile.bottom);
         }
@@ -339,7 +392,10 @@ class _DungeonGridPainter extends CustomPainter {
     canvas.drawPath(
       outline,
       Paint()
-        ..color = DungeonColors.primary
+        ..color = switch (depth) {
+          _WaterDepth.shallow => DungeonColors.shallowWaterBorder,
+          _WaterDepth.deep => DungeonColors.primary,
+        }
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.square
@@ -347,12 +403,18 @@ class _DungeonGridPainter extends CustomPainter {
     );
   }
 
-  bool _isWater(int column, int row) =>
-      column >= 0 &&
-      column < DungeonFloor.size &&
-      row >= 0 &&
-      row < DungeonFloor.size &&
-      floor.tileAt(GridPosition(column, row)) == DungeonTile.water;
+  _WaterDepth? _waterDepthAt(int column, int row) {
+    final position = GridPosition(column, row);
+    if (!floor.contains(position)) {
+      return null;
+    }
+    if (floor.hasShallowWaterAt(position)) {
+      return _WaterDepth.shallow;
+    }
+    return floor.tileAt(position) == DungeonTile.water
+        ? _WaterDepth.deep
+        : null;
+  }
 
   @override
   bool shouldRepaint(_DungeonGridPainter oldDelegate) =>

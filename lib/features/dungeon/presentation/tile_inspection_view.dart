@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/dungeon_theme.dart';
 import '../domain/dungeon_floor.dart';
+import '../domain/dungeon_enemy.dart';
 import '../domain/tile_inspection.dart';
 import 'dungeon_strings.dart';
 import 'tile_glyph.dart';
@@ -59,12 +60,22 @@ class TileInspectionView extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: DungeonTheme.spacing * 2),
-          Text(
-            content.description,
-            key: const ValueKey('tile-inspection-description'),
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          if (content.description case final description?) ...[
+            const SizedBox(height: DungeonTheme.spacing * 2),
+            Text(
+              description,
+              key: const ValueKey('tile-inspection-description'),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+          if (content.note case final note?) ...[
+            const SizedBox(height: DungeonTheme.spacing),
+            Text(
+              note,
+              key: const ValueKey('tile-inspection-note'),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
         ],
       ),
     );
@@ -84,6 +95,16 @@ enum _InspectionContent {
     color: DungeonColors.grass,
     glyph: 'g',
   ),
+  shallowWater(
+    name: DungeonStrings.shallowWater,
+    description: DungeonStrings.waterDescription,
+    note: DungeonStrings.shallowWaterDescription,
+    color: DungeonColors.water,
+    glyph: 'w',
+    prefix: 's',
+    prefixColor: DungeonColors.shallowWaterPrefix,
+  ),
+  bat(name: DungeonStrings.bat, color: DungeonColors.enemy, glyph: 'B'),
   stairs(
     name: DungeonStrings.stairsName,
     description: DungeonStrings.stairsDescription,
@@ -97,25 +118,38 @@ enum _InspectionContent {
   );
 
   final String name;
-  final String description;
+  final String? description;
+  final String? note;
   final Color color;
   final String? glyph;
+  final String prefix;
+  final Color? prefixColor;
   final IconData? icon;
 
   const _InspectionContent({
     required this.name,
-    required this.description,
+    this.description,
+    this.note,
     required this.color,
     this.glyph,
     this.icon,
+    this.prefix = '',
+    this.prefixColor,
   });
 
   static _InspectionContent fromTile(TileInspection inspection) {
+    final enemy = inspection.enemy;
+    if (enemy != null) {
+      return switch (enemy.type) {
+        EnemyType.bat => bat,
+      };
+    }
     final object = inspection.object;
     if (object != null) {
       return switch (object.type) {
         GroundObjectType.grass => grass,
         GroundObjectType.stairsUp => stairs,
+        GroundObjectType.shallowWater => shallowWater,
       };
     }
     return switch (inspection.tile) {
@@ -158,6 +192,8 @@ class _InspectionPortrait extends StatelessWidget {
             label: content.name,
             fontSize: 28,
             color: content.color,
+            prefix: content.prefix,
+            prefixColor: content.prefixColor,
           ),
           (_, final icon?) => Icon(icon, size: 28, color: content.color),
           _ => ColoredBox(color: content.color),

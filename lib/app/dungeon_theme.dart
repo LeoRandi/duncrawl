@@ -14,6 +14,9 @@ abstract final class DungeonColors {
   static const textPrimary = primary;
   static const textSecondary = primary;
   static const textDisabled = Color(0xFF808080);
+  static const enemy = textDisabled;
+  static const shallowWaterPrefix = grass;
+  static const shallowWaterBorder = shallowWaterPrefix;
 }
 
 abstract final class DungeonTheme {

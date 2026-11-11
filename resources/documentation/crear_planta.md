@@ -2,16 +2,16 @@
 
 Cada planta se define con una plantilla en `lib/features/dungeon/floors/`.
 La planta inicial está en `floor_0.dart`; la segunda está en `floor_1.dart`.
-`floor_2.dart` es una plantilla vacía con paredes exteriores, aparición central
-`(7, 7)` y mapas de terreno y objetos listos para dibujar. Se accede desde la
-escalera de la planta 1. No tiene objetos ni lección de tutorial por ahora.
+`floor_2.dart` incluye agua, hierba, Shallow Water y los primeros murciélagos.
+Se accede desde la escalera de la planta 1. La aparición y la escalera se editan
+en su plantilla, igual que el resto del mapa.
 
-1. Duplica una plantilla existente, por ejemplo `floor_1.dart` como `floor_2.dart`.
-2. Cambia el nombre de la constante a `floor2` y `number` a `2`.
+1. Duplica una plantilla existente, por ejemplo `floor_2.dart` como `floor_3.dart`.
+2. Cambia el nombre de la constante a `floor3` y `number` a `3`.
 3. Edita las filas: siempre deben ser **15 filas de 15 símbolos**.
 4. Registra la nueva plantilla en el mapa de `dungeon_floors.dart`.
 5. Define la escalera como `InteractiveDungeonGroundObject` y enlázala con un
-   callback que llame a `context.requestFloorChange(2)`.
+   callback que llame a `context.requestFloorChange(3)`.
 
 | Símbolo | Significado |
 |---|---|
@@ -20,6 +20,7 @@ escalera de la planta 1. No tiene objetos ni lección de tutorial por ahora.
 | `#` | Pared que bloquea el movimiento |
 | `w` | Agua que bloquea el movimiento, dibujada como una `w` gris oscuro |
 | `@` | Aparición del personaje sobre suelo; exactamente una por planta |
+| `1`, `2`, `3` | Cada marcador en `rows` coloca un Bat sobre suelo normal |
 
 ## Dibujar mapas por capas
 
@@ -29,9 +30,9 @@ cero: `GridPosition(columna, fila)`.
 
 | Propiedad | Símbolos | Uso |
 |---|---|---|
-| `rows` | `.`, `#`, `_`, `w`, `@` | Estructura base y una única aparición. |
+| `rows` | `.`, `#`, `_`, `w`, `@`, `1`, `2`, `3` | Estructura, una aparición y posiciones de los Bats. |
 | `terrainOverlay` | `.`, `w`, `#`, `_` | Terreno adicional; `.` conserva la casilla base. No admite `@`. |
-| `objectRows` | `.`, `g` | `g` coloca hierba; `.` no añade objetos. |
+| `objectRows` | `.`, `g`, `s` | Hierba (`g`), Shallow Water (`s`) o ningún objeto (`.`). |
 | `groundObjects` | Objetos Dart | Escaleras, objetos interactivos y colocaciones individuales. |
 
 Los dos mapas adicionales son opcionales y pueden omitirse. El terreno se compone
@@ -53,16 +54,34 @@ por sus lados se unen sin líneas interiores; un contorno blanco rodea cada masa
 incluidos sus entrantes y huecos. La hierba usa una `g` gris claro (`#B0B0B0`).
 No se generan imágenes.
 
+`s` crea un objeto `DungeonGroundObject.shallowWater`. Se dibuja como `sw`: la `s`
+es gris claro y la `w` conserva el gris oscuro del agua. El mismo símbolo aparece
+en el retrato. Su descripción reutiliza la del agua y añade debajo
+`Shallow: This pool of liquid is walkable`. Es transitable, incluso si está colocado
+sobre terreno `w`; al retirar el objeto, el agua profunda vuelve a bloquear el paso.
+Sus grupos tienen un borde gris claro (`#B0B0B0`), sin líneas entre casillas
+adyacentes. El agua profunda conserva el borde blanco, también en el límite con
+agua poco profunda. Ambas descripciones comparten el texto
+`Water: liquid. Normally unwalkable, unless you fly`; Shallow Water conserva su
+nota adicional debajo.
+
+Los marcadores `1`, `2` y `3` solo se admiten en `rows`. Cada uno crea un
+`DungeonEnemy` de tipo `EnemyType.bat` en `DungeonFloor.enemies`, independiente
+de los objetos del suelo. Son marcadores estáticos de la capa de personajes, con
+una `B` gris; al inspeccionarlos aparecen el nombre Bat y su retrato.
+
 ## Selección e inspección
 
 Tocar una casilla vacía (suelo normal o vacío) limpia la selección. Una casilla con
 hierba, escalera, agua o pared muestra en el panel inferior su nombre, descripción
 y retrato: `g`, icono de escalera, `w` o bloque gris, respectivamente. El marco
-pulsante identifica la casilla seleccionada. Unselect también limpia esa selección.
+pulsante identifica la casilla seleccionada. Shallow Water usa `sw`; los Bats usan
+`B` y muestran su nombre y retrato. Unselect también limpia esa selección.
 
 Si coinciden varios objetos, se inspecciona el último de `groundObjects`, que es el
-que se dibuja encima. El personaje tiene prioridad sobre cualquier objeto bajo él;
-tocarlo o tocar su retrato del appbar recupera sus controles de movimiento.
+que se dibuja encima. Un Bat tiene prioridad sobre los objetos del suelo bajo él.
+El protagonista tiene prioridad al ocupar la casilla; tocarlo o tocar su retrato
+del appbar recupera sus controles de movimiento.
 Seleccionar otro contenido cancela la ruta pendiente. Inspeccionar no activa
 callbacks ni mueve al personaje. Durante desplazamientos, diálogos y cambios de
 planta se conservan los bloqueos existentes; el tutorial solo admite sus objetivos
@@ -83,8 +102,8 @@ de su texto y sus gráficos.
    movimiento se dibujan sobre el suelo.
 3. **Objetos sobre el suelo**: `objectRows` y `groundObjects`. La escalera y la hierba pertenecen
    a esta capa, no al tipo de suelo. Otros objetos y trampas usan la misma capa.
-4. **Personajes**: su posición y estado durante la partida. Ahora solo el protagonista.
-   El símbolo `@` define dónde aparece; no dibuja un segundo personaje estático.
+4. **Personajes**: protagonista y Bats. `@` define la aparición del protagonista;
+   `1`, `2` y `3` colocan Bats. Ninguno de estos símbolos cambia el tipo del suelo.
 5. **Objetos sobre los personajes**: capa reservada y vacía por ahora.
 6. **Niebla y oscuridad**: capa reservada y transparente por ahora.
 

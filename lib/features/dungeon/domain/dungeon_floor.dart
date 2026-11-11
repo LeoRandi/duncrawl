@@ -1,10 +1,11 @@
 import 'grid_position.dart';
 import 'ground_object_interaction_context.dart';
 import 'tile_inspection.dart';
+import 'dungeon_enemy.dart';
 
 enum DungeonTile { voidTile, floor, wall, water }
 
-enum GroundObjectType { stairsUp, grass }
+enum GroundObjectType { stairsUp, grass, shallowWater }
 
 enum GroundObjectInteractionKind { generic, stairs, pickup }
 
@@ -16,6 +17,9 @@ class DungeonGroundObject {
 
   const DungeonGroundObject.grass(this.position)
     : type = GroundObjectType.grass;
+
+  const DungeonGroundObject.shallowWater(this.position)
+    : type = GroundObjectType.shallowWater;
 }
 
 class InteractiveDungeonGroundObject extends DungeonGroundObject {
@@ -39,7 +43,7 @@ class DungeonFloorTemplate {
   /// Mapa opcional de terreno: el punto conserva la estructura de [rows].
   final List<String> terrainOverlay;
 
-  /// Mapa opcional de objetos: g coloca hierba y el punto deja la casilla vacía.
+  /// Mapa opcional: g coloca hierba, s agua poco profunda y el punto no añade objetos.
   final List<String> objectRows;
 
   /// Sustituyen lo dibujado en su posición; admiten varios objetos explícitos juntos.
@@ -64,7 +68,7 @@ class DungeonFloorTemplate {
       _validateRows(objectRows, 'objectRows');
     }
 
-    final (spawn, baseTiles) = _readBaseMap();
+    final (spawn, baseTiles, enemies) = _readBaseMap();
     final explicitPositions = groundObjects
         .map((object) => object.position)
         .toSet();
@@ -73,6 +77,7 @@ class DungeonFloorTemplate {
       spawn: spawn,
       tiles: List.unmodifiable(_composeTerrain(baseTiles, explicitPositions)),
       groundObjects: List.unmodifiable(_composeObjects(explicitPositions)),
+      enemies: List.unmodifiable(enemies),
     );
     if (!floor.canEnter(spawn)) {
       throw const FormatException('The spawn must be on walkable terrain.');
@@ -84,13 +89,21 @@ class DungeonFloorTemplate {
         );
       }
     }
+    for (final enemy in enemies) {
+      if (!floor.canEnter(enemy.position)) {
+        throw const FormatException(
+          'Enemies must be placed on walkable terrain.',
+        );
+      }
+    }
 
     return floor;
   }
 
-  (GridPosition, List<DungeonTile>) _readBaseMap() {
+  (GridPosition, List<DungeonTile>, List<DungeonEnemy>) _readBaseMap() {
     GridPosition? spawn;
     final tiles = <DungeonTile>[];
+    final enemies = <DungeonEnemy>[];
     for (var row = 0; row < DungeonFloor.size; row++) {
       for (var column = 0; column < DungeonFloor.size; column++) {
         final symbol = rows[row][column];
@@ -101,14 +114,23 @@ class DungeonFloorTemplate {
           }
           spawn = position;
         }
-        final tile = symbol == '@' ? DungeonTile.floor : _parseTile(symbol);
+        final enemy = switch (symbol) {
+          '1' || '2' || '3' => DungeonEnemy.bat(position),
+          _ => null,
+        };
+        if (enemy != null) {
+          enemies.add(enemy);
+        }
+        final tile = symbol == '@' || enemy != null
+            ? DungeonTile.floor
+            : _parseTile(symbol);
         tiles.add(tile);
       }
     }
     if (spawn == null) {
       throw const FormatException('A floor must have exactly one spawn.');
     }
-    return (spawn, tiles);
+    return (spawn, tiles, enemies);
   }
 
   List<DungeonTile> _composeTerrain(
@@ -149,6 +171,7 @@ class DungeonFloorTemplate {
         final object = switch (symbol) {
           '.' => null,
           'g' => DungeonGroundObject.grass(position),
+          's' => DungeonGroundObject.shallowWater(position),
           _ => throw FormatException('Unknown object symbol: $symbol'),
         };
         if (object != null && !explicitPositions.contains(position)) {
@@ -189,12 +212,14 @@ class DungeonFloor {
   final GridPosition spawn;
   final List<DungeonTile> _tiles;
   final List<DungeonGroundObject> groundObjects;
+  final List<DungeonEnemy> enemies;
 
   const DungeonFloor._({
     required this.number,
     required this.spawn,
     required List<DungeonTile> tiles,
     required this.groundObjects,
+    required this.enemies,
   }) : _tiles = tiles;
 
   DungeonTile tileAt(GridPosition position) =>
@@ -208,10 +233,21 @@ class DungeonFloor {
       return null;
     }
     final tile = tileAt(position);
+    final enemy = enemies
+        .where((enemy) => enemy.position == position)
+        .firstOrNull;
     for (final object in groundObjects.reversed) {
       if (object.position == position) {
-        return TileInspection(position: position, tile: tile, object: object);
+        return TileInspection(
+          position: position,
+          tile: tile,
+          object: object,
+          enemy: enemy,
+        );
       }
+    }
+    if (enemy != null) {
+      return TileInspection(position: position, tile: tile, enemy: enemy);
     }
     return switch (tile) {
       DungeonTile.water ||
@@ -246,6 +282,7 @@ class DungeonFloor {
       groundObjects: List.unmodifiable(
         groundObjects.where((other) => other != object),
       ),
+      enemies: enemies,
     );
   }
 
@@ -256,7 +293,14 @@ class DungeonFloor {
 
     return switch (tileAt(position)) {
       DungeonTile.floor => true,
-      DungeonTile.voidTile || DungeonTile.wall || DungeonTile.water => false,
+      DungeonTile.water => hasShallowWaterAt(position),
+      DungeonTile.voidTile || DungeonTile.wall => false,
     };
   }
+
+  bool hasShallowWaterAt(GridPosition position) => groundObjects.any(
+    (object) =>
+        object.position == position &&
+        object.type == GroundObjectType.shallowWater,
+  );
 }
