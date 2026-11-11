@@ -8,8 +8,14 @@ import '../../../app/dungeon_theme.dart';
 import '../../../widgets/interaction_gate.dart';
 import '../../../widgets/iris_transition.dart';
 import '../../dialogue/presentation/show_dialogue.dart';
+import '../../dialogue/presentation/dialogue_sequence.dart';
+import '../../tutorial/presentation/tutorial_sequence.dart';
+import '../../shards/domain/shard_progress.dart';
+import '../../shards/presentation/shard_scope.dart';
+import '../../shards/presentation/shard_reveal.dart';
 import '../domain/dungeon.dart';
 import '../domain/dungeon_floor.dart';
+import '../domain/dungeon_enemy.dart';
 import '../domain/grid_position.dart';
 import '../floors/floor_0.dart';
 import '../floors/dungeon_floors.dart';
@@ -23,6 +29,7 @@ import 'dungeon_tutorial_lesson.dart';
 import 'floor_tutorials.dart';
 import '../../tutorial/presentation/tutorial_controller.dart';
 import 'movement_menu.dart';
+import 'selection_stack_tab.dart';
 import 'opening_tutorial.dart';
 import 'game_menu_dialog.dart';
 import 'ground_object_confirmation_dialog.dart';
@@ -71,15 +78,22 @@ class _DungeonPageState extends State<DungeonPage> {
   final _portraitAnchorKey = GlobalKey(debugLabel: 'tutorial-portrait');
   final _gridAnchorKey = GlobalKey(debugLabel: 'tutorial-grid');
   final _stairsAnchorKey = GlobalKey(debugLabel: 'tutorial-stairs');
-  late final _tutorialAnchors = <Object, GlobalKey>{
+  final _batAnchorKey = GlobalKey(debugLabel: 'tutorial-bat');
+  DungeonEnemy? get _tutorialBat => _controller.dungeon.floor.enemies
+      .where((enemy) => enemy.type == EnemyType.bat)
+      .firstOrNull;
+
+  Map<Object, GlobalKey> get _tutorialAnchors => {
     DungeonTutorialTarget.character: _playerAnchorKey,
     DungeonTutorialTarget.portrait: _portraitAnchorKey,
     DungeonTutorialTarget.grid: _gridAnchorKey,
     DungeonTutorialTarget.stairs: _stairsAnchorKey,
     DungeonTutorialTarget.menu: _movementMenuKey,
+    if (_tutorialBat != null) DungeonTutorialTarget.bat: _batAnchorKey,
   };
   Timer? _tutorialTimer;
   bool _wasMoving = false;
+  TutorialStep? _effectStep;
 
   bool _requiresInteractionConfirmation(
     InteractiveDungeonGroundObject object,
@@ -112,6 +126,9 @@ class _DungeonPageState extends State<DungeonPage> {
   void _prepareTutorial(int floorNumber) {
     _tutorialTimer?.cancel();
     final lesson = dungeonTutorials[floorNumber];
+    if (widget.settings.value.skipTutorials) {
+      _grantSkippedRewards(lesson);
+    }
     if (lesson == null ||
         widget.settings.value.skipTutorials ||
         !_visitedTutorialFloors.add(floorNumber)) {
@@ -139,9 +156,20 @@ class _DungeonPageState extends State<DungeonPage> {
 
   void _onSettingsChanged() {
     if (widget.settings.value.skipTutorials) {
+      _grantSkippedRewards(dungeonTutorials[_controller.dungeon.floor.number]);
       _tutorialTimer?.cancel();
       _activeLesson = null;
       _tutorial.skip();
+    }
+  }
+
+  void _grantSkippedRewards(DungeonTutorialLesson? lesson) {
+    if (lesson == null) {
+      return;
+    }
+    final shards = ShardScope.controllerOf(context);
+    for (final reward in lesson.shardRewards) {
+      shards?.unlock(reward);
     }
   }
 
@@ -168,6 +196,39 @@ class _DungeonPageState extends State<DungeonPage> {
   void _onTutorialChanged() {
     _updateInputState();
     setState(() {});
+    final step = _tutorial.currentStep;
+    if (step != null && step.effect != null && !identical(step, _effectStep)) {
+      _effectStep = step;
+      unawaited(_runTutorialEffect(step));
+    }
+  }
+
+  Future<void> _runTutorialEffect(TutorialStep step) async {
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || _isLeaving || !identical(_tutorial.currentStep, step)) {
+      return;
+    }
+    final effect = step.effect;
+    if (effect is DialogueSequence) {
+      await showDialogue(
+        context,
+        sequence: effect,
+        anchorKey: _movementMenuKey,
+        textSpeed: widget.settings.value.textSpeed,
+      );
+    } else if (effect is ColorShard) {
+      await showShardReveal(context, effect);
+      if (mounted && identical(_tutorial.currentStep, step)) {
+        ShardScope.controllerOf(context)?.unlock(effect);
+      }
+    }
+    if (mounted && !_isLeaving && identical(_tutorial.currentStep, step)) {
+      _tutorial.signal(
+        effect is DialogueSequence
+            ? DungeonTutorialEvent.dialogueFinished
+            : DungeonTutorialEvent.effectFinished,
+      );
+    }
   }
 
   void _updateInputState() {
@@ -280,6 +341,15 @@ class _DungeonPageState extends State<DungeonPage> {
   void _selectTile(GridPosition position) {
     if (position == _controller.dungeon.player) {
       _selectCharacter();
+      return;
+    }
+    if (_tutorial.allows(DungeonTutorialControl.enemySelection) &&
+        _controller.dungeon.floor.inspectTile(position)?.enemy?.type ==
+            EnemyType.bat) {
+      _controller.selectTile(position);
+      if (_controller.inspectedTile?.enemy?.type == EnemyType.bat) {
+        _tutorial.signal(DungeonTutorialEvent.batSelected);
+      }
       return;
     }
     if (!_tutorial.allows(DungeonTutorialControl.inspection)) {
@@ -441,7 +511,7 @@ class _DungeonPageState extends State<DungeonPage> {
                                         0.0,
                                         constraints.maxHeight -
                                             MovementMenu.minimumHeight -
-                                            DungeonTheme.spacing * 2,
+                                            SelectionStackTab.extent,
                                       ),
                                     ),
                                   );
@@ -524,6 +594,8 @@ class _DungeonPageState extends State<DungeonPage> {
                                                   _controller.isSelected,
                                               selectedTile:
                                                   _controller.selectedPosition,
+                                              selectedInspection: _controller
+                                                  .selectedInspection,
                                               onSelectTile: _selectTile,
                                               onSelectPlayer:
                                                   _tutorial.allows(
@@ -534,28 +606,65 @@ class _DungeonPageState extends State<DungeonPage> {
                                                   : null,
                                               playerAnchorKey: _playerAnchorKey,
                                               stairsAnchorKey: _stairsAnchorKey,
+                                              enemyAnchorKeys: {
+                                                if (_tutorialBat
+                                                    case final bat?)
+                                                  bat.position: _batAnchorKey,
+                                              },
                                             ),
                                           ),
                                           SizedBox(
                                             width: sideMenu
                                                 ? DungeonTheme.spacing * 2
                                                 : 0,
-                                            height: sideMenu
-                                                ? 0
-                                                : DungeonTheme.spacing * 2,
                                           ),
-                                          Expanded(
-                                            child: MovementMenu(
-                                              key: _movementMenuKey,
-                                              controller: _controller,
-                                              enabled: _tutorial.allows(
-                                                DungeonTutorialControl.confirm,
+                                          if (!sideMenu)
+                                            SizedBox(
+                                              height: SelectionStackTab.extent,
+                                              child: SelectionStackTab(
+                                                controller: _controller,
+                                                enabled: _tutorial.allows(
+                                                  DungeonTutorialControl
+                                                      .inspection,
+                                                ),
                                               ),
-                                              pulseConfirm: _tutorial
-                                                  .emphasizes(
-                                                    DungeonTutorialControl
-                                                        .confirm,
+                                            ),
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                if (sideMenu)
+                                                  SizedBox(
+                                                    height: SelectionStackTab
+                                                        .extent,
+                                                    child: SelectionStackTab(
+                                                      controller: _controller,
+                                                      enabled: _tutorial.allows(
+                                                        DungeonTutorialControl
+                                                            .inspection,
+                                                      ),
+                                                    ),
                                                   ),
+                                                Expanded(
+                                                  child: MovementMenu(
+                                                    key: _movementMenuKey,
+                                                    controller: _controller,
+                                                    enabled: _tutorial.allows(
+                                                      DungeonTutorialControl
+                                                          .confirm,
+                                                    ),
+                                                    allowStatHelp: _tutorial
+                                                        .allows(
+                                                          DungeonTutorialControl
+                                                              .statHelp,
+                                                        ),
+                                                    pulseConfirm: _tutorial
+                                                        .emphasizes(
+                                                          DungeonTutorialControl
+                                                              .confirm,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ],

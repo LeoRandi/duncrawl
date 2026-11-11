@@ -1,0 +1,34 @@
+-Pisos[3/11]
+--Hacer que el 4º piso(Floor 3) sea el encuentro con la diosa, la voz misteriosa.
+--Hacer que el 8º piso(Floor 7) sea un primer mini boss
+--Hacer que el 11º piso(Floor 10) sea el primer boss de zona de verdad(FIN DE LA DEMO)
+
+-Desbloqueos
+--Floor 7: shard verde y desbloqueo de tamear enemigos
+--Floor 10: shard azul
+--Logros:
+---Get through a floor that hosts enemies without getting into combat
+
+-Items
+--Equipamiento[0/10]
+--Consuminles[0/10]
+
+-Combate
+--Visión de los enemigos, y comenzar combate una vez en visión
+--Sistema de combate por turnos
+--Ataques y habilidades de cada personaje
+---Ataque básico y 1 habilidad fuerte para el Adventurer
+---Ataque básico y habilidad de cura para Bats
+
+-Bestiario
+
+-Trampas
+
+-Misiones
+--Menú de misiones
+--Tag para ver la activa en todo momento
+
+-Moverse hacia abajo en la mazmorra(escaleras de bajada)
+
+-Persistencia de datos en memoria local
+

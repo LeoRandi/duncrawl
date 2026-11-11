@@ -50,6 +50,7 @@ class TutorialSpotlightSpec {
 /// Los identificadores y eventos pertenecen al tutorial que define los pasos.
 class TutorialStep {
   final Object id;
+  final Object? effect;
   final Object? advanceOn;
   final Duration? delay;
   final Set<Object> enabledControls;
@@ -58,6 +59,7 @@ class TutorialStep {
 
   const TutorialStep({
     required this.id,
+    this.effect,
     this.advanceOn,
     this.delay,
     this.enabledControls = const {},

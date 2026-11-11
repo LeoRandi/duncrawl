@@ -53,12 +53,9 @@ void main() {
           ),
         );
         expect(tester.takeException(), isNull);
+        expect(find.byKey(const ValueKey('selection-name')), findsOneWidget);
         expect(
-          find.byKey(const ValueKey('tile-inspection-name')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('tile-inspection-description')),
+          find.byKey(const ValueKey('selection-description')),
           findsOneWidget,
         );
         if (inspection.tile == DungeonTile.water) {
@@ -68,7 +65,7 @@ void main() {
         }
         if (inspection.object?.type == GroundObjectType.shallowWater) {
           await tester.ensureVisible(
-            find.byKey(const ValueKey('tile-inspection-note')),
+            find.byKey(const ValueKey('selection-note')),
           );
           expect(
             find.text('Shallow: This pool of liquid is walkable'),

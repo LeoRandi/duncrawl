@@ -19,6 +19,14 @@ abstract final class DungeonStrings {
   static const shallowWaterDescription =
       'Shallow: This pool of liquid is walkable';
   static const bat = 'Bat';
+  static const batDescription = 'A bat found in the dungeon.';
+  static const movementHelp =
+      'Walkable amount of tiles per turn outside of combat. When in combat, its always reduced by two, as shown in the parenthesys';
+  static const dismissStatInfo = 'Dismiss stat information';
+  static const tutorialSelectBat =
+      'Select a Bat to see its description and stats.';
+  static const tutorialBatStats =
+      'Here you can see its description, level, HP and Movement. Tap (?) beside Movement to learn what it means.';
   static const wall = 'Wall';
   static const wallDescription = 'A solid wall that blocks movement.';
   static const skipTutorials = 'Skip tutorials';
@@ -65,6 +73,12 @@ abstract final class DungeonStrings {
   static const tutorialTileDetails =
       'The bottom panel shows the selected tile\'s name, description and portrait. '
       'Tap an empty tile to clear the selection.';
+
+  static String over(String name) => 'Over: $name';
+  static String below(String name) => 'Below: $name';
+  static String statInfo(String name) => 'About $name';
+  static String movementStat({required int normal, required int combat}) =>
+      '$normal($combat)';
 
   static String textSpeedName(TextSpeed speed) => switch (speed) {
     TextSpeed.slow => slowText,

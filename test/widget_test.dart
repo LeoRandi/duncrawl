@@ -78,7 +78,7 @@ void main() {
         const Color(0xFF808080),
       );
       final infoRect = tester.getRect(
-        find.byKey(const ValueKey('selected-character-info')),
+        find.byKey(const ValueKey('selection-info')),
       );
       final unselectRect = tester.getRect(find.text('Unselect'));
       final movementRect = tester.getRect(find.text('Movement'));
@@ -463,7 +463,7 @@ void main() {
     final menuButton = tester.getRect(find.byTooltip('Menu'));
     expect(menuButton.center.dy, closeTo(portrait.center.dy, 0.01));
     expect(menuButton.left, greaterThan(portrait.right));
-    final information = find.byKey(const ValueKey('selected-character-info'));
+    final information = find.byKey(const ValueKey('selection-info'));
     expect(
       find.descendant(of: information, matching: find.text('Lv. 1')),
       findsOneWidget,

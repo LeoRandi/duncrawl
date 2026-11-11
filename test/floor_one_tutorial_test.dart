@@ -93,18 +93,12 @@ void main() {
         _spotlight(tester).specification.highlights.single.target,
         DungeonTutorialTarget.menu,
       );
+      expect(find.byKey(const ValueKey('selection-name')), findsOneWidget);
       expect(
-        find.byKey(const ValueKey('tile-inspection-name')),
+        find.byKey(const ValueKey('selection-description')),
         findsOneWidget,
       );
-      expect(
-        find.byKey(const ValueKey('tile-inspection-description')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('tile-inspection-portrait')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('selection-portrait')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('close-tutorial')));
       await tester.pump();
       expect(find.byType(TutorialSpotlight), findsNothing);
@@ -171,7 +165,7 @@ void main() {
         final panel = tester.getRect(find.byKey(const ValueKey('option-menu')));
         expect(hint.overlaps(panel), isFalse);
         expect(
-          find.byKey(const ValueKey('tile-inspection-description')),
+          find.byKey(const ValueKey('selection-description')),
           findsOneWidget,
         );
         await tester.tap(find.byKey(const ValueKey('close-tutorial')));

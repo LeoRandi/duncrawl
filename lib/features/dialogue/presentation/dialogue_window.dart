@@ -7,6 +7,7 @@ import '../../dungeon/presentation/dungeon_strings.dart';
 import '../../settings/domain/text_speed.dart';
 import 'dialogue_sequence.dart';
 import 'wobbly_word.dart';
+import '../../shards/presentation/shard_text.dart';
 
 class DialogueWindow extends StatefulWidget {
   final DialogueSequence sequence;
@@ -171,7 +172,7 @@ class _DialogueWindowState extends State<DialogueWindow>
         continue;
       }
       if (!fragments[fragmentIndex].wobbly) {
-        spans.add(TextSpan(text: letters.join()));
+        spans.addAll(ShardMentions.spans(context, letters.join()));
         continue;
       }
 
@@ -196,7 +197,13 @@ class _DialogueWindowState extends State<DialogueWindow>
                 'wobbly-word-$_lineIndex-$fragmentIndex-$wordStart',
               ),
               letters: letters.sublist(wordStart, wordEnd),
-              style: textStyle.copyWith(fontWeight: FontWeight.bold),
+              style: textStyle.copyWith(
+                fontWeight: FontWeight.bold,
+                color: ShardMentions.spans(
+                  context,
+                  letters.sublist(wordStart, wordEnd).join(),
+                ).firstOrNull?.style?.color,
+              ),
               animation: _wobbleAnimation,
               letterOffset: wordStart,
             ),

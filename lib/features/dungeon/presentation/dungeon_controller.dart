@@ -30,7 +30,8 @@ class DungeonController extends ChangeNotifier {
   MovementPhase _phase = MovementPhase.idle;
   Timer? _movementTimer;
   int _nextStep = 0;
-  GridPosition? _selectedPosition;
+  TileInspection? _selection;
+  List<TileInspection> _selectionStack = const [];
   bool _isPaused = false;
   bool _isInteracting = false;
   FloorChangeRequest? _pendingFloorChange;
@@ -68,15 +69,31 @@ class DungeonController extends ChangeNotifier {
       _plan.path.isNotEmpty &&
       (_phase == MovementPhase.dragging ||
           _phase == MovementPhase.awaitingConfirmation);
-  bool get isSelected => _selectedPosition == _dungeon.player;
-  GridPosition? get selectedPosition => _selectedPosition;
-  TileInspection? get inspectedTile {
-    final position = _selectedPosition;
-    if (position == null || isSelected) {
-      return null;
+  bool get isSelected => _selection?.isAdventurer ?? false;
+  GridPosition? get selectedPosition => _selection?.position;
+  TileInspection? get selectedInspection => _selection;
+  List<TileInspection> get selectionStack => _selectionStack;
+  List<TileInspection> get alternateSelections {
+    final selection = _selection;
+    if (selection == null) {
+      return const [];
     }
-    return _dungeon.floor.inspectTile(position);
+    return List.unmodifiable(
+      _selectionStack.where((entry) => !entry.hasSameTarget(selection)),
+    );
   }
+
+  TileInspection? get alternateSelection => alternateSelections.firstOrNull;
+  bool get isInspectingBelow =>
+      _selection != null && !_selectionStack.first.hasSameTarget(_selection!);
+
+  bool isAboveSelection(TileInspection target) {
+    final selection = _selection;
+    return selection != null &&
+        _selectionStack.indexOf(target) < _selectionStack.indexOf(selection);
+  }
+
+  TileInspection? get inspectedTile => isSelected ? null : _selection;
 
   bool get isPaused => _isPaused;
   bool get isBottomMenuEnabled =>
@@ -104,7 +121,7 @@ class DungeonController extends ChangeNotifier {
     _interactionQueue.clear();
     _phase = MovementPhase.idle;
     _nextStep = 0;
-    _selectedPosition = null;
+    _setSelectionPair(const []);
     _interactAtPlayer();
     _plan = _newPlan();
     notifyListeners();
@@ -217,12 +234,21 @@ class DungeonController extends ChangeNotifier {
       );
     }
     _dungeon = dungeon;
-    final position = _selectedPosition;
-    if (position != null &&
-        !isSelected &&
-        _dungeon.floor.inspectTile(position) == null) {
-      _selectedPosition = null;
+    final selection = _refreshSelection(_selection);
+    _selection = selection;
+    _selectionStack = selection == null
+        ? const []
+        : _dungeon.selectionStackAt(selection.position);
+  }
+
+  TileInspection? _refreshSelection(TileInspection? previous) {
+    if (previous == null) {
+      return null;
     }
+    return _dungeon
+        .selectionStackAt(previous.position)
+        .where(previous.hasSameTarget)
+        .firstOrNull;
   }
 
   void _requestFloorChange(int floorNumber) {
@@ -277,7 +303,34 @@ class DungeonController extends ChangeNotifier {
   }
 
   void _selectPosition(GridPosition? position) {
-    _selectedPosition = position;
+    _setSelectionPair(
+      position == null ? const [] : _dungeon.selectionStackAt(position),
+    );
+    _resetSelectionPlan();
+  }
+
+  void _setSelectionPair(List<TileInspection> stack) {
+    _selectionStack = stack;
+    _selection = stack.firstOrNull;
+  }
+
+  /// Selecciona cualquier contenido de la pila sin activar sus interacciones.
+  void selectStackEntry(TileInspection target) {
+    if (!_canSelect || !_selectionStack.contains(target)) {
+      return;
+    }
+    _selection = target;
+    _resetSelectionPlan();
+  }
+
+  void toggleStackSelection() {
+    final alternate = alternateSelection;
+    if (alternate != null) {
+      selectStackEntry(alternate);
+    }
+  }
+
+  void _resetSelectionPlan() {
     _nextStep = 0;
     _phase = MovementPhase.idle;
     _plan = _newPlan();
@@ -391,7 +444,7 @@ class DungeonController extends ChangeNotifier {
 
   void _advance() {
     _dungeon = _dungeon.stepTo(_plan.path[_nextStep]);
-    _selectedPosition = _dungeon.player;
+    _setSelectionPair(_dungeon.selectionStackAt(_dungeon.player));
     _nextStep++;
     final interactionStopsMovement = _interactAtPlayer();
     if (_nextStep == _plan.path.length || interactionStopsMovement) {

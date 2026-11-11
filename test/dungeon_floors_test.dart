@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:duncrawl/features/dialogue/presentation/dialogue_window.dart';
+import 'package:duncrawl/features/dialogue/presentation/wobbly_word.dart';
 import 'package:duncrawl/features/dungeon/domain/adventurer.dart';
 import 'package:duncrawl/features/dungeon/domain/dungeon.dart';
 import 'package:duncrawl/features/dungeon/domain/dungeon_floor.dart';
@@ -18,7 +19,17 @@ import 'package:duncrawl/features/dungeon/presentation/dungeon_board.dart';
 import 'package:duncrawl/features/dungeon/presentation/dungeon_controller.dart';
 import 'package:duncrawl/features/dungeon/presentation/dungeon_page.dart';
 import 'package:duncrawl/features/dungeon/presentation/game_menu_dialog.dart';
+import 'package:duncrawl/features/dungeon/presentation/floor_two_tutorial.dart';
+import 'package:duncrawl/features/dungeon/presentation/opening_tutorial.dart';
+import 'package:duncrawl/features/dungeon/presentation/dungeon_strings.dart';
+import 'package:duncrawl/features/tutorial/presentation/tutorial_spotlight.dart';
 import 'package:duncrawl/main.dart';
+import 'package:duncrawl/features/shards/domain/shard_progress.dart';
+import 'package:duncrawl/features/shards/presentation/shard_scope.dart';
+import 'package:duncrawl/features/shards/presentation/shard_colors.dart';
+import 'package:duncrawl/features/shards/presentation/shard_reveal.dart';
+import 'package:duncrawl/features/dungeon/presentation/tile_glyph.dart';
+import 'package:duncrawl/features/dungeon/presentation/tile_area_outline.dart';
 import 'package:duncrawl/widgets/iris_transition.dart';
 
 import 'helpers/dialogue_helpers.dart';
@@ -164,6 +175,8 @@ void main() {
       expect(controller.plan.path, isEmpty);
       expect(controller.isSelected, isFalse);
       expect(controller.dungeon.player, floor1.create().spawn);
+      expect(controller.alternateSelection, isNull);
+      expect(controller.isInspectingBelow, isFalse);
       controller.resume();
       expect(controller.isBottomMenuEnabled, isFalse);
       controller.enableBottomMenu(otherLock);
@@ -239,88 +252,289 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Stairs reach Floor 1 with its own lesson and retain floor movement rules',
-    (tester) async {
-      await _reachStairs(tester);
-      final center = tester.getCenter(find.byKey(const ValueKey('player')));
-      expect(_board(tester).floor.number, 0);
-      expect(_mask(tester).center, center);
-      await tester.tapAt(tester.getCenter(find.byTooltip('Menu')));
-      await tester.tapAt(
-        tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
-      );
-      await tester.pump(const Duration(milliseconds: 1499));
-      expect(_board(tester).floor.number, 0);
-      expect(find.byType(GameMenuDialog), findsNothing);
-      await tester.pump(const Duration(milliseconds: 1));
+  testWidgets('Stairs reach Floors 1 and 2 with their own arrival dialogues', (
+    tester,
+  ) async {
+    await _reachStairs(tester);
+    final center = tester.getCenter(find.byKey(const ValueKey('player')));
+    expect(_board(tester).floor.number, 0);
+    expect(_mask(tester).center, center);
+    await tester.tapAt(tester.getCenter(find.byTooltip('Menu')));
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
+    );
+    await tester.pump(const Duration(milliseconds: 1499));
+    expect(_board(tester).floor.number, 0);
+    expect(find.byType(GameMenuDialog), findsNothing);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(_board(tester).floor.number, 1);
+    expect(_board(tester).player, floor1.create().spawn);
+    expect(_mask(tester).aperture, closeTo(0, 0.001));
+    expect(
+      _mask(tester).center,
+      tester.getCenter(find.byKey(const ValueKey('player'))),
+    );
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
+    );
+    await tester.pump();
+    expect(_board(tester).isSelected, isFalse);
+    await tester.pump(IrisTransition.phaseDuration);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(find.byType(IrisMask), findsNothing);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.byType(DialogueWindow), findsOneWidget);
+    await completeFloorOneTutorial(tester);
+    final grid = tester.getRect(find.byType(DungeonBoard));
+    final tile = grid.width / DungeonFloor.size;
+    final stairs = _stairs(_board(tester).floor).position;
+    expect(
+      (tester.getCenter(find.byIcon(Icons.stairs_rounded)) -
+              (grid.topLeft +
+                  Offset(
+                    tile * (stairs.column + 0.5),
+                    tile * (stairs.row + 0.5),
+                  )))
+          .distance,
+      lessThan(0.001),
+    );
+    await tester.tap(find.byKey(const ValueKey('player-portrait')));
+    await tester.pump();
+    await tester.drag(
+      find.byType(DungeonBoard),
+      Offset(_stepDistance(tester) * 3, 0),
+    );
+    await tester.pump();
+    expect(
+      _board(tester).movementPath.every(_board(tester).floor.canEnter),
+      isTrue,
+    );
+    expect(_board(tester).movementPath.last.column, lessThan(14));
+    final direction = DungeonDirection.values.firstWhere(
+      (direction) => _board(
+        tester,
+      ).floor.canEnter(direction.stepFrom(_board(tester).player)),
+    );
+    await tester.drag(
+      find.byType(DungeonBoard),
+      Offset(
+        direction.columnOffset * _stepDistance(tester) * 1.1,
+        direction.rowOffset * _stepDistance(tester) * 1.1,
+      ),
+    );
+    await tester.pump();
+    expect(_board(tester).movementPath, [
+      direction.stepFrom(_board(tester).player),
+    ]);
+    await _walkRoute(tester, _routeTo(_board(tester).floor, stairs));
+    await tester.pumpAndSettle();
+    expect(_board(tester).floor.number, 2);
+    expect(_board(tester).player, floor2.create().spawn);
+    expect(find.byType(DialogueWindow), findsNothing);
+    await tester.tapAt(tester.getCenter(find.byTooltip('Menu')));
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
+    );
+    await tester.pump();
+    expect(_board(tester).isSelected, isFalse);
+    expect(find.byType(GameMenuDialog), findsNothing);
+    await tester.pump(FloorTwoTutorial.delay);
+    expect(find.byType(DialogueWindow), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 250));
+    final expectedLines = [
+      'You are almost there, just one more floor...',
+      '...Wait are those Bats? They keep getting into this floor, im not sure how.',
+      '...Are you colorblind or something? Why is everything so gray?',
+      "Hurry up, and don't get eaten!",
+    ];
+    for (var index = 0; index < expectedLines.length; index++) {
+      await tester.tap(find.byKey(const ValueKey('dialogue-box')));
       await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 1));
-      await tester.pump();
-      expect(_board(tester).floor.number, 1);
-      expect(_board(tester).player, floor1.create().spawn);
-      expect(_mask(tester).aperture, closeTo(0, 0.001));
       expect(
-        _mask(tester).center,
-        tester.getCenter(find.byKey(const ValueKey('player'))),
+        tester
+            .widget<Semantics>(find.byKey(const ValueKey('dialogue-text')))
+            .properties
+            .label,
+        expectedLines[index],
       );
-      await tester.tapAt(
-        tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
-      );
+      final animatedWord = switch (index) {
+        1 => 'Bats',
+        3 => 'eaten',
+        _ => null,
+      };
+      if (animatedWord == null) {
+        expect(find.byType(WobblyWord), findsNothing);
+      } else {
+        expect(
+          tester.widget<WobblyWord>(find.byType(WobblyWord)).letters.join(),
+          animatedWord,
+        );
+      }
+      await tester.tap(find.byKey(const ValueKey('dialogue-advance')));
       await tester.pump();
-      expect(_board(tester).isSelected, isFalse);
-      await tester.pump(IrisTransition.phaseDuration);
-      await tester.pump(const Duration(milliseconds: 1));
+    }
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(find.byType(DialogueWindow), findsNothing);
+    expect(find.byType(TutorialSpotlight), findsNothing);
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
+    );
+    await tester.pump(const Duration(milliseconds: 499));
+    expect(_board(tester).isSelected, isFalse);
+    expect(find.byType(TutorialSpotlight), findsNothing);
+    await tester.pump(const Duration(milliseconds: 1));
+    final batSpotlight = tester.widget<TutorialSpotlight>(
+      find.byType(TutorialSpotlight),
+    );
+    expect(
+      batSpotlight.specification.highlights.single.target,
+      DungeonTutorialTarget.bat,
+    );
+    final batTarget = batSpotlight.anchors[DungeonTutorialTarget.bat];
+    expect(batTarget, isNotNull);
+    final batGrid = tester.getRect(find.byType(DungeonBoard));
+    await tester.tapAt(batGrid.topLeft + const Offset(1, 1));
+    await tester.pump();
+    expect(_board(tester).selectedTile, isNull);
+    await tester.tapAt(tester.getCenter(find.byKey(batTarget!)));
+    await tester.pump();
+    expect(
+      tester
+          .widget<TutorialSpotlight>(find.byType(TutorialSpotlight))
+          .specification
+          .highlights
+          .single
+          .target,
+      DungeonTutorialTarget.menu,
+    );
+    expect(find.text('Bat'), findsOneWidget);
+    expect(find.text(DungeonStrings.batDescription), findsOneWidget);
+    expect(find.text('Lv. 1'), findsOneWidget);
+    expect(find.text('HP 3/3'), findsOneWidget);
+    expect(find.text('5(3)'), findsOneWidget);
+    expect(find.text('Confirm'), findsNothing);
+    final selectedBat = _board(tester).selectedTile;
+    await tester.tap(find.byKey(const ValueKey('movement-stat-info')));
+    await tester.pump();
+    expect(find.text(DungeonStrings.movementHelp), findsOneWidget);
+    final popup = tester.getRect(find.byKey(const ValueKey('stat-info-popup')));
+    expect(
+      popup.bottom,
+      lessThan(
+        tester.getTopLeft(find.byKey(const ValueKey('movement-stat-info'))).dy,
+      ),
+    );
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('stat-info-popup')), findsNothing);
+    expect(_board(tester).selectedTile, selectedBat);
+    expect(find.byType(TutorialSpotlight), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('close-tutorial')));
+    await tester.pump();
+    expect(find.byType(TutorialSpotlight), findsNothing);
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
+    );
+    await tester.pump(const Duration(milliseconds: 499));
+    expect(_board(tester).isSelected, isFalse);
+    expect(find.byType(DialogueWindow), findsNothing);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    final shardLines = [
+      'Gods, i really cannot see if those Bats are angry at you or not...',
+      'Let me see if i can find this...',
+      '...',
+      "...Ah! Here it is, let's see if this works...",
+    ];
+    for (var index = 0; index < shardLines.length; index++) {
+      await tester.tap(find.byKey(const ValueKey('dialogue-box')));
       await tester.pump();
-      expect(find.byType(IrisMask), findsNothing);
-      await tester.pump(const Duration(seconds: 2));
-      expect(find.byType(DialogueWindow), findsOneWidget);
-      await completeFloorOneTutorial(tester);
-      final grid = tester.getRect(find.byType(DungeonBoard));
-      final tile = grid.width / DungeonFloor.size;
-      final stairs = _stairs(_board(tester).floor).position;
       expect(
-        (tester.getCenter(find.byIcon(Icons.stairs_rounded)) -
-                (grid.topLeft +
-                    Offset(
-                      tile * (stairs.column + 0.5),
-                      tile * (stairs.row + 0.5),
-                    )))
-            .distance,
-        lessThan(0.001),
+        tester
+            .widget<Semantics>(find.byKey(const ValueKey('dialogue-text')))
+            .properties
+            .label,
+        shardLines[index],
       );
-      await tester.tap(find.byKey(const ValueKey('player-portrait')));
+      if (index == 3) {
+        expect(
+          tester.widget<WobblyWord>(find.byType(WobblyWord)).letters.join(),
+          'this',
+        );
+      }
+      await tester.tap(find.byKey(const ValueKey('dialogue-advance')));
       await tester.pump();
-      await tester.drag(
-        find.byType(DungeonBoard),
-        Offset(_stepDistance(tester) * 3, 0),
-      );
-      await tester.pump();
-      expect(
-        _board(tester).movementPath.every(_board(tester).floor.canEnter),
-        isTrue,
-      );
-      expect(_board(tester).movementPath.last.column, lessThan(14));
-      final direction = DungeonDirection.values.firstWhere(
-        (direction) => _board(
-          tester,
-        ).floor.canEnter(direction.stepFrom(_board(tester).player)),
-      );
-      await tester.drag(
-        find.byType(DungeonBoard),
-        Offset(
-          direction.columnOffset * _stepDistance(tester) * 1.1,
-          direction.rowOffset * _stepDistance(tester) * 1.1,
-        ),
-      );
-      await tester.pump();
-      expect(_board(tester).movementPath, [
-        direction.stepFrom(_board(tester).player),
-      ]);
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+    }
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(find.byType(DialogueWindow), findsNothing);
+    final shards = ShardScope.controllerOf(
+      tester.element(find.byType(DungeonPage)),
+    )!;
+    expect(shards.value.unlocked, isEmpty);
+    await tester.pump(const Duration(milliseconds: 99));
+    expect(find.byType(ShardReveal), findsNothing);
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
+    );
+    expect(_board(tester).isSelected, isFalse);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(find.byType(ShardReveal), findsOneWidget);
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('shard-reveal'))),
+      tester.getSize(find.byType(Scaffold).first).center(Offset.zero),
+    );
+    expect(find.byIcon(Icons.star), findsOneWidget);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 999));
+    expect(shards.value.unlocked, isEmpty);
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
+    );
+    expect(_board(tester).isSelected, isFalse);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(ShardReveal), findsNothing);
+    expect(shards.value.unlocked, {ColorShard.red});
+    final batGlyphs = tester
+        .widgetList<TileGlyph>(find.byType(TileGlyph))
+        .where((glyph) => glyph.symbol == 'B');
+    expect(
+      batGlyphs.every((glyph) => glyph.color == ShardColors.bat.unlocked),
+      isTrue,
+    );
+    expect(
+      tester.widget<TileAreaOutline>(find.byType(TileAreaOutline)).color,
+      ShardColors.vision.unlocked,
+    );
+    await tester.tap(find.byKey(const ValueKey('player-portrait')));
+    await tester.pump();
+    expect(_board(tester).isSelected, isTrue);
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
+    final menuButton = find.widgetWithText(OutlinedButton, 'Main menu');
+    final button = tester.widget<OutlinedButton>(menuButton);
+    expect(
+      button.style?.foregroundColor?.resolve({}),
+      ShardColors.mainMenu.unlocked,
+    );
+    await tester.tap(menuButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Start'), findsOneWidget);
+    expect(shards.value.unlocked, {ColorShard.red});
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'Disposal during a floor transition cancels its animation safely',
@@ -365,6 +579,24 @@ Future<void> _reachStairs(WidgetTester tester) async {
 
 DungeonBoard _board(WidgetTester tester) =>
     tester.widget<DungeonBoard>(find.byType(DungeonBoard));
+
+Future<void> _walkRoute(WidgetTester tester, List<GridPosition> route) async {
+  for (final next in route) {
+    final current = _board(tester).player;
+    await tester.drag(
+      find.byType(DungeonBoard),
+      Offset(
+        (next.column - current.column) * _stepDistance(tester) * 1.1,
+        (next.row - current.row) * _stepDistance(tester) * 1.1,
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Confirm'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+  }
+}
 
 DungeonGroundObject _stairs(DungeonFloor floor) => floor.groundObjects
     .singleWhere((object) => object.type == GroundObjectType.stairsUp);

@@ -4,10 +4,15 @@ import '../../../app/dungeon_theme.dart';
 import '../domain/dungeon_floor.dart';
 import '../domain/dungeon_enemy.dart';
 import '../domain/grid_position.dart';
+import '../domain/tile_inspection.dart';
 import 'dungeon_strings.dart';
 import 'movement_preview.dart';
 import 'selection_frame.dart';
 import 'tile_glyph.dart';
+import 'tile_area_outline.dart';
+import '../../shards/presentation/shard_colors.dart';
+import '../../shards/presentation/shard_scope.dart';
+import '../../shards/domain/shard_progress.dart';
 
 /// Orden de composición del tablero, desde el fondo hasta la niebla.
 enum DungeonLayer {
@@ -25,10 +30,12 @@ class DungeonBoard extends StatelessWidget {
   final List<GridPosition> movementPath;
   final bool isSelected;
   final GridPosition? selectedTile;
+  final TileInspection? selectedInspection;
   final VoidCallback? onSelectPlayer;
   final ValueChanged<GridPosition>? onSelectTile;
   final GlobalKey? playerAnchorKey;
   final GlobalKey? stairsAnchorKey;
+  final Map<GridPosition, GlobalKey> enemyAnchorKeys;
 
   const DungeonBoard({
     super.key,
@@ -37,10 +44,12 @@ class DungeonBoard extends StatelessWidget {
     this.movementPath = const [],
     this.isSelected = false,
     this.selectedTile,
+    this.selectedInspection,
     this.onSelectPlayer,
     this.onSelectTile,
     this.playerAnchorKey,
     this.stairsAnchorKey,
+    this.enemyAnchorKeys = const {},
   });
 
   @override
@@ -78,7 +87,12 @@ class DungeonBoard extends StatelessWidget {
                 child: Stack(
                   children: [
                     Positioned.fill(
-                      child: CustomPaint(painter: _DungeonGridPainter(floor)),
+                      child: CustomPaint(
+                        painter: _DungeonGridPainter(
+                          floor,
+                          ShardScope.progressOf(context),
+                        ),
+                      ),
                     ),
                     for (var row = 0; row < DungeonFloor.size; row++)
                       for (var column = 0; column < DungeonFloor.size; column++)
@@ -97,7 +111,7 @@ class DungeonBoard extends StatelessWidget {
                               )),
                               symbol: 'w',
                               label: DungeonStrings.water,
-                              color: DungeonColors.water,
+                              color: ShardColors.water.of(context),
                               fontSize: tileSize * 0.8,
                             ),
                           ),
@@ -110,7 +124,7 @@ class DungeonBoard extends StatelessWidget {
                         ),
                       ),
                     if (selectedTile case final position?
-                        when position != player)
+                        when position != player || !isSelected)
                       Positioned(
                         left: position.column * tileSize,
                         top: position.row * tileSize,
@@ -149,16 +163,18 @@ class DungeonBoard extends StatelessWidget {
                             key: ValueKey(('grass', object.position)),
                             symbol: 'g',
                             label: DungeonStrings.grass,
-                            color: DungeonColors.grass,
+                            color: ShardColors.grass.of(context),
                             fontSize: tileSize * 0.8,
                           ),
                           GroundObjectType.shallowWater => TileGlyph(
                             key: ValueKey(('shallow-water', object.position)),
                             symbol: 'w',
                             prefix: 's',
-                            prefixColor: DungeonColors.shallowWaterPrefix,
+                            prefixColor: ShardColors.shallowWaterPrefix.of(
+                              context,
+                            ),
                             label: DungeonStrings.shallowWater,
-                            color: DungeonColors.water,
+                            color: ShardColors.shallowWater.of(context),
                             fontSize: tileSize * 0.8,
                           ),
                         },
@@ -172,14 +188,16 @@ class DungeonBoard extends StatelessWidget {
                   children: [
                     for (final enemy in floor.enemies)
                       Positioned(
-                        key: ValueKey(('enemy', enemy.position)),
+                        key:
+                            enemyAnchorKeys[enemy.position] ??
+                            ValueKey(('enemy', enemy.position)),
                         left: enemy.position.column * tileSize,
                         top: enemy.position.row * tileSize,
                         width: tileSize,
                         height: tileSize,
                         child: Semantics(
                           button: true,
-                          selected: selectedTile == enemy.position,
+                          selected: selectedInspection?.enemy == enemy,
                           label: DungeonStrings.bat,
                           onTap: onSelectTile == null
                               ? null
@@ -192,7 +210,7 @@ class DungeonBoard extends StatelessWidget {
                                 EnemyType.bat => TileGlyph(
                                   symbol: 'B',
                                   label: DungeonStrings.bat,
-                                  color: DungeonColors.enemy,
+                                  color: ShardColors.bat.of(context),
                                   fontSize: tileSize * 0.8,
                                 ),
                               },
@@ -226,7 +244,7 @@ class DungeonBoard extends StatelessWidget {
                               child: Icon(
                                 Icons.person_rounded,
                                 size: tileSize * 0.75,
-                                color: DungeonColors.primary,
+                                color: ShardColors.adventurer.of(context),
                               ),
                             ),
                           ),
@@ -236,9 +254,16 @@ class DungeonBoard extends StatelessWidget {
                   ],
                 ),
               ),
-              const _BoardLayer(
+              _BoardLayer(
                 layer: DungeonLayer.aboveCharacters,
-                child: SizedBox.expand(),
+                child: switch (selectedInspection?.enemy) {
+                  final enemy? => TileAreaOutline(
+                    key: const ValueKey('enemy-vision'),
+                    tiles: enemy.visionArea.where(floor.contains).toSet(),
+                    color: ShardColors.vision.of(context),
+                  ),
+                  null => const SizedBox.expand(),
+                },
               ),
               const _BoardLayer(
                 layer: DungeonLayer.fogAndDarkness,
@@ -268,7 +293,9 @@ enum _WaterDepth { shallow, deep }
 class _DungeonGridPainter extends CustomPainter {
   final DungeonFloor floor;
 
-  const _DungeonGridPainter(this.floor);
+  final ShardProgress shards;
+
+  const _DungeonGridPainter(this.floor, this.shards);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -393,8 +420,8 @@ class _DungeonGridPainter extends CustomPainter {
       outline,
       Paint()
         ..color = switch (depth) {
-          _WaterDepth.shallow => DungeonColors.shallowWaterBorder,
-          _WaterDepth.deep => DungeonColors.primary,
+          _WaterDepth.shallow => ShardColors.shallowWaterPrefix.resolve(shards),
+          _WaterDepth.deep => ShardColors.waterBorder.resolve(shards),
         }
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
@@ -418,5 +445,5 @@ class _DungeonGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DungeonGridPainter oldDelegate) =>
-      floor != oldDelegate.floor;
+      floor != oldDelegate.floor || shards != oldDelegate.shards;
 }

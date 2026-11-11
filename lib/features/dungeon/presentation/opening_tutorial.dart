@@ -8,12 +8,22 @@ enum DungeonTutorialEvent {
   movementPreviewed,
   movementFinished,
   tileInspected,
+  batSelected,
   hintClosed,
+  effectFinished,
 }
 
-enum DungeonTutorialControl { selection, movement, menu, confirm, inspection }
+enum DungeonTutorialControl {
+  selection,
+  movement,
+  menu,
+  confirm,
+  inspection,
+  enemySelection,
+  statHelp,
+}
 
-enum DungeonTutorialTarget { character, portrait, grid, stairs, menu }
+enum DungeonTutorialTarget { character, portrait, grid, stairs, menu, bat }
 
 enum OpeningTutorialStage {
   dialogue,

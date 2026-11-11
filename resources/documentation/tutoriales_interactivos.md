@@ -75,6 +75,26 @@ suelo vacío no avanza la guía. Al seleccionar contenido se descubre el panel i
 explicando nombre, descripción y retrato. Close termina la lección y permite
 seleccionar al personaje, moverlo o limpiar la selección tocando una casilla vacía.
 
+La planta 2 usa `FloorTwoTutorial`: espera 500 ms tras abrirse el iris y reproduce
+cuatro mensajes de la misma voz. `Bats` y `eaten` son fragmentos wobbly. Tras cerrar
+el diálogo hay 500 ms bloqueados y un foco sobre un Bat. Solo seleccionarlo permite
+avanzar; el protagonista y otros contenidos quedan bloqueados. Después se ilumina
+el panel inferior para leer descripción, nivel, HP y Movement.
+
+El paso de estadísticas habilita `DungeonTutorialControl.statHelp`, que permite
+desplazarse por el texto y abrir `(?)` sin habilitar Unselect, movimiento, pestañas
+de capas ni el menú del juego. Close termina la lección y restaura los controles.
+
+## Ayudas reutilizables de estadísticas
+
+`StatInfoButton(statName: ..., explanation: ...)` muestra `(?)` y abre una ventana
+pequeña anclada sobre el botón. Recibe texto y estado habilitado, sin depender del
+controlador del juego. Usa letra pequeña del tema, fondo negro y borde blanco.
+Se mantiene dentro del área visible; el texto puede desplazarse si no cabe.
+Cualquier toque dentro o fuera la cierra y consume ese toque, sin activar controles
+del juego. La ayuda de Movement explica las casillas por turno y su reducción en
+combate; los Bats muestran `5(3)`.
+
 ## Luces y ventanas
 
 `TutorialSpotlightSpec` recibe el texto y una lista de `TutorialHighlight`:
@@ -150,3 +170,26 @@ sensibilidad del arrastre y de su cantidad de casillas por turno:
 `MovementSpeed.stepInterval` concentra los intervalos. `DungeonController` recibe
 `movementInterval` para leer el ajuste al confirmar una ruta y al reanudarla. El
 menú inferior permanece bloqueado durante el desplazamiento a cualquier velocidad.
+
+
+## Efectos entre pasos y primer fragmento
+
+`TutorialStep.effect` permite reutilizar esperas y bloqueos tambi?n para efectos
+que no son spotlights. `DungeonPage` interpreta `DialogueSequence` mostrando el
+di?logo habitual y se?alando `dialogueFinished` al acabar su salida. Un efecto
+`ColorShard` muestra `showShardReveal`, otorga el fragmento al terminar y se?ala
+`effectFinished`. El efecto se ejecuta una sola vez por entrada; antes y despu?s
+de cada espera se verifica que la pantalla y el paso sigan activos.
+
+Tras cerrar el spotlight de estad?sticas del Bat en la planta 2 se bloquean los
+controles durante 500 ms. Se muestran los cuatro mensajes de la voz sobre buscar
+una soluci?n, con `this` animado en el ?ltimo. Al cerrar el di?logo y terminar su
+salida hay otros 100 ms bloqueados. Despu?s se oscurece el fondo al 50 % y aparece
+una estrella roja centrada durante un segundo, con pulsos, p?xeles salientes y rayos.
+La estrella usa un icono Material y un CustomPainter; no hay im?genes ni sprites.
+
+Al finalizar se otorga `ColorShard.red`, se actualizan sus colores y se recuperan
+los controles. El mismo efecto admite los otros fragmentos. Con Skip tutorials,
+la recompensa de la planta se concede al entrar sin esperas, di?logos ni animaci?n.
+Los dem?s colores siguen bloqueados. Los fragmentos se conservan durante la sesi?n,
+incluso al regresar al men? principal y comenzar otra partida.

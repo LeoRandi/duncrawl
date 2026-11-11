@@ -227,33 +227,31 @@ class DungeonFloor {
 
   bool contains(GridPosition position) => _contains(position);
 
-  /// Devuelve el objeto superior o el terreno destacado; el suelo vacío no se inspecciona.
-  TileInspection? inspectTile(GridPosition position) {
+  TileInspection? inspectTile(GridPosition position) =>
+      inspectTileStack(position).firstOrNull;
+
+  /// Orden visual, de arriba abajo; el suelo vacío no añade una selección.
+  List<TileInspection> inspectTileStack(GridPosition position) {
     if (!contains(position)) {
-      return null;
+      return const [];
     }
     final tile = tileAt(position);
-    final enemy = enemies
-        .where((enemy) => enemy.position == position)
-        .firstOrNull;
+    final contents = <TileInspection>[
+      for (final enemy in enemies.reversed)
+        if (enemy.position == position)
+          TileInspection(position: position, tile: tile, enemy: enemy),
+    ];
     for (final object in groundObjects.reversed) {
       if (object.position == position) {
-        return TileInspection(
-          position: position,
-          tile: tile,
-          object: object,
-          enemy: enemy,
+        contents.add(
+          TileInspection(position: position, tile: tile, object: object),
         );
       }
     }
-    if (enemy != null) {
-      return TileInspection(position: position, tile: tile, enemy: enemy);
+    if (tile == DungeonTile.water || tile == DungeonTile.wall) {
+      contents.add(TileInspection(position: position, tile: tile));
     }
-    return switch (tile) {
-      DungeonTile.water ||
-      DungeonTile.wall => TileInspection(position: position, tile: tile),
-      DungeonTile.floor || DungeonTile.voidTile => null,
-    };
+    return List.unmodifiable(contents);
   }
 
   Iterable<InteractiveDungeonGroundObject> interactiveObjectsAt(

@@ -69,6 +69,11 @@ Los marcadores `1`, `2` y `3` solo se admiten en `rows`. Cada uno crea un
 `DungeonEnemy` de tipo `EnemyType.bat` en `DungeonFloor.enemies`, independiente
 de los objetos del suelo. Son marcadores estáticos de la capa de personajes, con
 una `B` gris; al inspeccionarlos aparecen el nombre Bat y su retrato.
+Cada Bat tiene nivel 1, HP 3/3 y Movement `5(3)`: cinco casillas fuera de combate y
+tres en combate. Su descripción se configura en `DungeonStrings.batDescription`.
+El botón `(?)` de Movement usa `StatInfoButton`, una ayuda reutilizable que se cierra
+con cualquier toque. Las estadísticas se presentan con `CharacterStatsView` y el
+contador compartido `MovementValue`.
 
 ## Selección e inspección
 
@@ -82,6 +87,17 @@ Si coinciden varios objetos, se inspecciona el último de `groundObjects`, que e
 que se dibuja encima. Un Bat tiene prioridad sobre los objetos del suelo bajo él.
 El protagonista tiene prioridad al ocupar la casilla; tocarlo o tocar su retrato
 del appbar recupera sus controles de movimiento.
+El hueco entre tablero y panel reserva una fila de pesta?as alineadas a la izquierda.
+Cada contenido seleccionable distinto del actual tiene su propia pesta?a: `Over:
+nombre` si queda debajo de lo seleccionado y `Below: nombre` si queda encima.
+La fila se desplaza horizontalmente si no caben todas. Por ejemplo, un Bat sobre
+Shallow Water y hierba permite inspeccionar ambas capas por separado y volver al
+Bat desde cualquiera de ellas. El suelo normal no a?ade una pesta?a.
+`selectionStack` conserva toda la pila; `alternateSelections` devuelve los otros
+contenidos y `selectStackEntry` cambia la selecci?n sin activar callbacks ni mover
+personajes. Durante movimientos, tutoriales y otros bloqueos conserva las mismas
+restricciones que el panel. Seleccionar otra casilla, deseleccionar o cambiar de
+planta limpia la pila anterior.
 Seleccionar otro contenido cancela la ruta pendiente. Inspeccionar no activa
 callbacks ni mueve al personaje. Durante desplazamientos, diálogos y cambios de
 planta se conservan los bloqueos existentes; el tutorial solo admite sus objetivos
@@ -92,6 +108,17 @@ hasta completarse.
 descripciones y retratos se definen en presentación con `DungeonStrings` y
 `TileInspectionView`, de modo que el contenido del mapa sigue siendo independiente
 de su texto y sus gráficos.
+
+`SelectionPanel` y `SelectionPortrait` comparten la estructura de todas las
+selecciones: retrato, detalles opcionales, Unselect y cuerpo desplazable con nombre,
+descripción y notas. El retrato mide 36 en paneles compactos y 44 en los demás;
+Unselect tiene la misma altura. Los controles de movimiento ocupan un pie opcional:
+actualmente solo el protagonista pertenece al grupo y puede usar Confirm. Los Bats
+muestran su Movement sin Confirm; agua, hierba, paredes y escaleras no tienen
+velocidad de movimiento y no muestran contador ni Confirm. Al inspeccionar
+un objeto bajo el protagonista tampoco se conservan sus controles de movimiento.
+La pestaña usa `SelectionStackTab`, mientras que `selectionStackAt` e
+`inspectTileStack` resuelven el orden de las capas en el dominio.
 
 ## Capas, de abajo arriba
 
@@ -222,3 +249,16 @@ escalera en la zona superior izquierda. Sus posiciones concretas se editan con
 `@` y `groundObjects` en la plantilla.
 Las capas quinta y sexta siguen vacías; los gráficos actuales son colores planos
 e iconos.
+
+
+## Visi?n de enemigos
+
+`DungeonEnemy.visionRadius` vale 2 para los Bats y no se muestra como estad?stica en
+el panel inferior. `visionArea` usa distancia Manhattan: 13 casillas incluyendo el
+centro, con dos pasos hasta cada extremo. No es un cuadrado ni a?ade reglas de
+combate o detecci?n. `TileAreaOutline` dibuja un borde pulsante exclusivamente por
+el per?metro del conjunto, recortado al tablero. Se muestra solamente al seleccionar
+al enemigo, y desaparece al inspeccionar el objeto que tiene debajo.
+
+Los colores de personajes, agua y hierba dependen de fragmentos independientes;
+consulta `fragmentos_colores.md` para a?adir colores o desbloqueos.

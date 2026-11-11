@@ -1,6 +1,7 @@
 import 'adventurer.dart';
 import 'dungeon_floor.dart';
 import 'grid_position.dart';
+import 'tile_inspection.dart';
 
 enum DungeonDirection {
   north(0, -1),
@@ -33,6 +34,21 @@ class Dungeon {
 
   Dungeon enterFloor(DungeonFloor destination) =>
       Dungeon.start(destination, adventurer: adventurer);
+
+  List<TileInspection> selectionStackAt(GridPosition position) {
+    if (!floor.contains(position)) {
+      return const [];
+    }
+    return List.unmodifiable([
+      if (position == player)
+        TileInspection(
+          position: position,
+          tile: floor.tileAt(position),
+          isAdventurer: true,
+        ),
+      ...floor.inspectTileStack(position),
+    ]);
+  }
 
   Dungeon withAdventurer(Adventurer adventurer) =>
       Dungeon._(floor: floor, player: player, adventurer: adventurer);

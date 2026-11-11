@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/dungeon_theme.dart';
 import 'dungeon_strings.dart';
+import '../../shards/presentation/shard_colors.dart';
 
 enum GameMenuAction { continueGame, bestiary, settings, mainMenu }
 
@@ -23,6 +24,14 @@ class GameMenuDialog extends StatelessWidget {
             for (final action in GameMenuAction.values) ...[
               Builder(
                 builder: (buttonContext) => OutlinedButton(
+                  style: action == GameMenuAction.mainMenu
+                      ? OutlinedButton.styleFrom(
+                          foregroundColor: ShardColors.mainMenu.of(context),
+                          side: BorderSide(
+                            color: ShardColors.mainMenu.of(context),
+                          ),
+                        )
+                      : null,
                   onPressed: () {
                     if (action == GameMenuAction.mainMenu) {
                       final box = buttonContext.findRenderObject() as RenderBox;

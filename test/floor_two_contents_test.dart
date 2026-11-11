@@ -44,7 +44,10 @@ void main() {
       );
       final inspection = floor.inspectTile(underBat.position);
       expect(inspection?.enemy, same(underBat));
-      expect(inspection?.object?.type, GroundObjectType.shallowWater);
+      expect(
+        floor.inspectTileStack(underBat.position)[1].object?.type,
+        GroundObjectType.shallowWater,
+      );
       final withoutObject = floor.removeGroundObject(shallow.first);
       expect(withoutObject.enemies, same(floor.enemies));
       expect(() => floor.enemies.clear(), throwsUnsupportedError);
@@ -77,7 +80,7 @@ void main() {
   );
 
   testWidgets(
-    'Shallow Water uses two colours and Bat selection shows only its name and portrait',
+    'Shallow Water uses two colours and Bat selection shows its description and stats',
     (tester) async {
       final controller = DungeonController(Dungeon.start(floor2.create()));
       addTearDown(controller.dispose);
@@ -144,7 +147,7 @@ void main() {
           tester.getBottomLeft(find.text(DungeonStrings.waterDescription)).dy,
         ),
       );
-      final portrait = find.byKey(const ValueKey('tile-inspection-portrait'));
+      final portrait = find.byKey(const ValueKey('selection-portrait'));
       _expectShallowColours(
         tester.widget<Text>(
           find.descendant(of: portrait, matching: find.text('sw')),
@@ -165,19 +168,20 @@ void main() {
         expect(find.text('Bat'), findsOneWidget);
         expect(
           find.descendant(
-            of: find.byKey(const ValueKey('tile-inspection-portrait')),
+            of: find.byKey(const ValueKey('selection-portrait')),
             matching: find.text('B'),
           ),
           findsOneWidget,
         );
         expect(
-          find.byKey(const ValueKey('tile-inspection-description')),
-          findsNothing,
+          find.byKey(const ValueKey('selection-description')),
+          findsOneWidget,
         );
-        expect(
-          find.byKey(const ValueKey('tile-inspection-note')),
-          findsNothing,
-        );
+        expect(find.text(DungeonStrings.batDescription), findsOneWidget);
+        expect(find.text('Lv. 1'), findsOneWidget);
+        expect(find.text('HP 3/3'), findsOneWidget);
+        expect(find.text('5(3)'), findsOneWidget);
+        expect(find.byKey(const ValueKey('selection-note')), findsNothing);
         expect(find.text('Confirm'), findsNothing);
         expect(controller.isSelected, isFalse);
         expect(controller.inspectedTile?.enemy, same(enemy));

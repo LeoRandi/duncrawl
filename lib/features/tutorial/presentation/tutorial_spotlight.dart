@@ -1,3 +1,4 @@
+import '../../shards/presentation/shard_text.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -203,7 +204,7 @@ class TutorialHint extends StatelessWidget {
           children: [
             Flexible(
               child: SingleChildScrollView(
-                child: Text(
+                child: ShardText(
                   text,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
