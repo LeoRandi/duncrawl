@@ -1,1 +1,0 @@
-Lets also add a secret setting, unlocked by tapping on the word "instant" on the text settings, that lets the player not go through any tutorial whatsoever

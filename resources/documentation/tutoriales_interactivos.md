@@ -70,7 +70,7 @@ completas y `SelectionFrame` aporta el borde pulsante reutilizable.
 ## Secuencia inicial
 
 Después del diálogo hay 500 ms sin controles. Se muestran el personaje y su
-retrato con estadísticas; solamente se permite seleccionar por cualquiera de las
+retrato del appbar; solamente se permite seleccionar por cualquiera de las
 dos zonas. Tras seleccionarlo hay otros 500 ms bloqueados, seguidos del tablero
 iluminado y la instrucción de arrastrar.
 
@@ -79,3 +79,44 @@ Confirm pulsa mientras esté habilitado, y deja de hacerlo al cancelar la ruta o
 durante el desplazamiento. Al completar el primer recorrido confirmado, se destaca
 la escalera. Close cierra esa última ayuda y finaliza la guía; los movimientos
 posteriores no vuelven a mostrarla.
+
+El appbar usa una sola fila: retrato seleccionable a la izquierda y el área de Menu
+reservada a la derecha. El nivel y los HP se muestran al seleccionar al personaje,
+en el panel inferior. El recorte de selección solo ilumina el retrato y su zona
+táctil; Menu permanece oscurecido y bloqueado durante ese paso. El panel inferior
+dispone de más altura con el espacio recuperado del encabezado.
+
+## Omitir tutoriales desde ajustes
+
+Tocar la etiqueta **Instant** del ajuste de velocidad del texto revela el interruptor
+**Skip tutorials**, inicialmente desactivado. Al pulsar Done se conservan el desbloqueo
+y el valor durante la sesión, igual que el resto de los ajustes. Cerrar los ajustes
+sin Done descarta los cambios.
+
+Toda nueva guía debe construirse con
+`TutorialController(sequence, isEnabled: !settings.skipTutorials)` y omitir también
+sus diálogos y esperas iniciales cuando ese ajuste esté activo. El controlador
+queda completo desde el principio y permite todos los controles. Para cancelar una
+guía en marcha, `skip()` elimina sus esperas, completa la secuencia y notifica a la
+pantalla. No se reproducen pasos al volver a activar tutoriales durante una partida;
+el ajuste vuelve a aplicarse al empezar otra guía o partida.
+
+La introducción del dungeon sigue esperando a que termine la transición de entrada,
+pero con Skip tutorials no espera el segundo inicial ni muestra diálogos, sombras o
+ayudas. Los controles se habilitan al terminar la transición.
+
+## Velocidad de desplazamiento
+
+**Movement speed** controla la animación del personaje, independientemente de la
+sensibilidad del arrastre y de su cantidad de casillas por turno:
+
+| Valor | Intervalo por casilla |
+|---|---|
+| Slow | 0,5 s |
+| Medium (predeterminado) | 0,3 s |
+| Fast | 0,15 s |
+| Ultra Fast | 0,05 s |
+
+`MovementSpeed.stepInterval` concentra los intervalos. `DungeonController` recibe
+`movementInterval` para leer el ajuste al confirmar una ruta y al reanudarla. El
+menú inferior permanece bloqueado durante el desplazamiento a cualquier velocidad.

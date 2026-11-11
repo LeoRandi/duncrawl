@@ -60,7 +60,6 @@ void main() {
       expect(find.byType(GroundObjectConfirmationDialog), findsNothing);
       expect(_board(tester).floor.number, 1);
       expect(_board(tester).player, _board(tester).floor.spawn);
-      expect(find.text('Tower – Floor 1'), findsOneWidget);
       expect(find.byType(IrisMask), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
     },

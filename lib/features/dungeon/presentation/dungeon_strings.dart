@@ -1,10 +1,23 @@
 import '../../settings/domain/text_speed.dart';
+import '../../settings/domain/movement_speed.dart';
 
 abstract final class DungeonStrings {
   static const appTitle = 'Dungeon Crawler 0';
   static const adventurer = 'Adventurer';
+  static const adventurerDescription =
+      'A lone adventurer exploring the dungeon.';
   static const stairs = 'Stairs leading upstairs';
+  static const stairsName = 'Upstairs';
+  static const stairsDescription = 'Stairs leading to a higher floor.';
   static const grass = 'Grass';
+  static const grassDescription =
+      'A patch of grass growing on the dungeon floor.';
+  static const water = 'Water';
+  static const waterDescription = 'Deep water. You cannot walk through it.';
+  static const wall = 'Wall';
+  static const wallDescription = 'A solid wall that blocks movement.';
+  static const skipTutorials = 'Skip tutorials';
+  static const ultraFast = 'Ultra Fast';
   static const grid = 'Dungeon, 15 by 15 tiles';
   static const emptyMenu = 'Empty option menu';
   static const start = 'Start';
@@ -28,7 +41,7 @@ abstract final class DungeonStrings {
   static const done = 'Done';
   static const confirm = 'Confirm';
   static const moving = 'Moving…';
-  static const optionMenu = 'Movement options';
+  static const optionMenu = 'Selection options';
   static const menu = 'Menu';
   static const continueGame = 'Continue';
   static const bestiary = 'Bestiary';
@@ -52,6 +65,16 @@ abstract final class DungeonStrings {
   static String textSpeedSetting(TextSpeed speed) =>
       'Text speed: ${textSpeedName(speed)}';
 
+  static String movementSpeedName(MovementSpeed speed) => switch (speed) {
+    MovementSpeed.slow => slowText,
+    MovementSpeed.medium => mediumText,
+    MovementSpeed.fast => fastText,
+    MovementSpeed.ultraFast => ultraFast,
+  };
+
+  static String movementSpeedSetting(MovementSpeed speed) =>
+      'Movement speed: ${movementSpeedName(speed)}';
+
   static String movementAllowance({
     required int remaining,
     required int total,
@@ -65,8 +88,6 @@ abstract final class DungeonStrings {
     required int column,
     required int row,
   }) => 'Step $step, column $column, row $row';
-
-  static String floor(int number) => 'Tower – Floor $number';
 
   static String level(int level) => 'Lv. $level';
 

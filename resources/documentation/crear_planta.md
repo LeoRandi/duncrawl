@@ -15,7 +15,61 @@ La planta inicial está en `floor_0.dart`; la segunda está en `floor_1.dart`.
 | `.` | Suelo transitable |
 | `_` | Vacío: deja ver el fondo negro y bloquea el movimiento |
 | `#` | Pared que bloquea el movimiento |
+| `w` | Agua que bloquea el movimiento, dibujada como una `w` gris oscuro |
 | `@` | Aparición del personaje sobre suelo; exactamente una por planta |
+
+## Dibujar mapas por capas
+
+`floor_1.dart` incluye los mapas de hierba y agua como ejemplo editable. Cada mapa
+contiene **15 filas de 15 caracteres**, sin espacios. Las coordenadas empiezan en
+cero: `GridPosition(columna, fila)`.
+
+| Propiedad | Símbolos | Uso |
+|---|---|---|
+| `rows` | `.`, `#`, `_`, `w`, `@` | Estructura base y una única aparición. |
+| `terrainOverlay` | `.`, `w`, `#`, `_` | Terreno adicional; `.` conserva la casilla base. No admite `@`. |
+| `objectRows` | `.`, `g` | `g` coloca hierba; `.` no añade objetos. |
+| `groundObjects` | Objetos Dart | Escaleras, objetos interactivos y colocaciones individuales. |
+
+Los dos mapas adicionales son opcionales y pueden omitirse. El terreno se compone
+primero, después se crean los objetos dibujados y finalmente se colocan los objetos
+explícitos de `groundObjects`.
+
+Un objeto explícito sustituye los objetos dibujados en su coordenada y despeja el
+terreno superpuesto, como el agua. La casilla vuelve al suelo base; el agua dibujada
+directamente en `rows` también se convierte en suelo normal. Las paredes y el vacío
+estructurales de `rows` se conservan: deben editarse en el mapa base antes de colocar
+un objeto allí. Varios objetos **explícitos** pueden compartir coordenada y mantienen
+su orden e identidad para sus callbacks.
+
+En la planta 1, la escalera de `(2, 2)` sustituye la hierba dibujada en esa casilla.
+El resto del mapa de hierba se conserva exactamente, incluidas las zonas separadas.
+El agua ocupa la capa de suelo y bloquea tanto el movimiento como su previsualización.
+Se representa con una `w` gris oscuro (`#606060`). Las casillas de agua adyacentes
+por sus lados se unen sin líneas interiores; un contorno blanco rodea cada masa,
+incluidos sus entrantes y huecos. La hierba usa una `g` gris claro (`#B0B0B0`).
+No se generan imágenes.
+
+## Selección e inspección
+
+Tocar una casilla vacía (suelo normal o vacío) limpia la selección. Una casilla con
+hierba, escalera, agua o pared muestra en el panel inferior su nombre, descripción
+y retrato: `g`, icono de escalera, `w` o bloque gris, respectivamente. El marco
+pulsante identifica la casilla seleccionada. Unselect también limpia esa selección.
+
+Si coinciden varios objetos, se inspecciona el último de `groundObjects`, que es el
+que se dibuja encima. El personaje tiene prioridad sobre cualquier objeto bajo él;
+tocarlo o tocar su retrato del appbar recupera sus controles de movimiento.
+Seleccionar otro contenido cancela la ruta pendiente. Inspeccionar no activa
+callbacks ni mueve al personaje. Durante desplazamientos, diálogos y cambios de
+planta se conservan los bloqueos existentes; el tutorial solo admite sus objetivos
+hasta completarse.
+
+`DungeonFloor.inspectTile` resuelve el contenido sin depender de Flutter y
+`DungeonController.selectTile` gestiona los cambios de selección. Los nombres,
+descripciones y retratos se definen en presentación con `DungeonStrings` y
+`TileInspectionView`, de modo que el contenido del mapa sigue siendo independiente
+de su texto y sus gráficos.
 
 ## Capas, de abajo arriba
 
@@ -24,7 +78,7 @@ La planta inicial está en `floor_0.dart`; la segunda está en `floor_1.dart`.
    (`#303030`). Las paredes usan un gris más claro (`#606060`), bloquean el paso y
    se unen sin líneas entre paredes adyacentes. Las marcas blancas de la ruta de
    movimiento se dibujan sobre el suelo.
-3. **Objetos sobre el suelo**: `groundObjects`. La escalera y la hierba pertenecen
+3. **Objetos sobre el suelo**: `objectRows` y `groundObjects`. La escalera y la hierba pertenecen
    a esta capa, no al tipo de suelo. Otros objetos y trampas usan la misma capa.
 4. **Personajes**: su posición y estado durante la partida. Ahora solo el protagonista.
    El símbolo `@` define dónde aparece; no dibuja un segundo personaje estático.
@@ -132,9 +186,10 @@ por tipo visual al controlador.
 
 `DungeonGroundObject.grass(GridPosition(columna, fila))` es un objeto normal y
 transitable. Se dibuja como una `g` gris claro (`#B0B0B0`) sin escalarla con el texto
-de la interfaz. No se recoge ni activa callbacks. La planta 1 usa una lista const
-de 49 casillas conectadas desde el centro hacia las cuatro esquinas interiores,
-respetando paredes y dejando libres la aparición y la escalera.
+de la interfaz. No se recoge ni activa callbacks. La planta 1 dibuja la hierba en
+`objectRows`: quedan 34 casillas después de sustituir la de la escalera. Puedes
+seguir añadiendo hierba individual a `groundObjects` cuando necesites una colocación
+explícita en vez del mapa de caracteres.
 
 Ambas plantas tienen 56 casillas de pared en el perímetro. La planta 0 conserva
 169 casillas de suelo interior; la planta 1 también incluye paredes interiores.

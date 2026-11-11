@@ -10,13 +10,16 @@ class TutorialController extends ChangeNotifier {
   int _stepIndex = 0;
   Timer? _stepTimer;
 
-  TutorialController(this.sequence) {
+  TutorialController(this.sequence, {bool isEnabled = true}) {
     if (sequence.steps.isEmpty) {
       throw ArgumentError.value(
         sequence.steps,
         'sequence.steps',
         'Must not be empty',
       );
+    }
+    if (!isEnabled) {
+      _stepIndex = sequence.steps.length;
     }
     _scheduleStep();
   }
@@ -37,6 +40,16 @@ class TutorialController extends ChangeNotifier {
     if (!isComplete && currentStep?.advanceOn == event) {
       _advance();
     }
+  }
+
+  /// Cancela las esperas y libera todos los controles, también para futuros tutoriales.
+  void skip() {
+    if (isComplete) {
+      return;
+    }
+    _stepTimer?.cancel();
+    _stepIndex = sequence.steps.length;
+    notifyListeners();
   }
 
   void _advance() {

@@ -4,6 +4,7 @@ import '../../../app/dungeon_theme.dart';
 import '../../dungeon/presentation/dungeon_strings.dart';
 import '../domain/game_settings.dart';
 import '../domain/text_speed.dart';
+import '../domain/movement_speed.dart';
 
 class GameSettingsDialog extends StatefulWidget {
   final GameSettings settings;
@@ -77,9 +78,46 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
                 );
               }),
             ),
-            const _SliderEndpoints(
+            _SliderEndpoints(
               minimum: DungeonStrings.slowText,
               maximum: DungeonStrings.instantText,
+              onMaximumTap: () => setState(() {
+                _settings = _settings.copyWith(isTutorialSkipUnlocked: true);
+              }),
+            ),
+            if (_settings.isTutorialSkipUnlocked)
+              SwitchListTile(
+                key: const ValueKey('skip-tutorials-switch'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text(DungeonStrings.skipTutorials),
+                value: _settings.skipTutorials,
+                onChanged: (value) => setState(() {
+                  _settings = _settings.copyWith(skipTutorials: value);
+                }),
+              ),
+            const SizedBox(height: DungeonTheme.spacing * 3),
+            Text(DungeonStrings.movementSpeedSetting(_settings.movementSpeed)),
+            const SizedBox(height: DungeonTheme.spacing),
+            Slider(
+              key: const ValueKey('movement-speed-slider'),
+              min: 0,
+              max: MovementSpeed.values.length - 1,
+              divisions: MovementSpeed.values.length - 1,
+              value: _settings.movementSpeed.index.toDouble(),
+              label: DungeonStrings.movementSpeedName(_settings.movementSpeed),
+              semanticFormatterCallback: (value) =>
+                  DungeonStrings.movementSpeedName(
+                    MovementSpeed.values[value.round()],
+                  ),
+              onChanged: (value) => setState(() {
+                _settings = _settings.copyWith(
+                  movementSpeed: MovementSpeed.values[value.round()],
+                );
+              }),
+            ),
+            const _SliderEndpoints(
+              minimum: DungeonStrings.slowText,
+              maximum: DungeonStrings.ultraFast,
             ),
             const SizedBox(height: DungeonTheme.spacing * 3),
             SwitchListTile(
@@ -116,15 +154,31 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
 class _SliderEndpoints extends StatelessWidget {
   final String minimum;
   final String maximum;
+  final VoidCallback? onMaximumTap;
 
-  const _SliderEndpoints({required this.minimum, required this.maximum});
+  const _SliderEndpoints({
+    required this.minimum,
+    required this.maximum,
+    this.onMaximumTap,
+  });
 
   @override
   Widget build(BuildContext context) => Row(
     children: [
       Expanded(child: Text(minimum)),
       const SizedBox(width: DungeonTheme.spacing),
-      Expanded(child: Text(maximum, textAlign: TextAlign.end)),
+      Expanded(
+        child: onMaximumTap == null
+            ? Text(maximum, textAlign: TextAlign.end)
+            : TextButton(
+                onPressed: onMaximumTap,
+                style: TextButton.styleFrom(
+                  alignment: Alignment.centerRight,
+                  padding: EdgeInsets.zero,
+                ),
+                child: Text(maximum),
+              ),
+      ),
     ],
   );
 }

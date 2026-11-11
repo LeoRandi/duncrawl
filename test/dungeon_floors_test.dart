@@ -255,7 +255,6 @@ void main() {
       await tester.pump();
       expect(_board(tester).floor.number, 1);
       expect(_board(tester).player, floor1.create().spawn);
-      expect(find.text('Tower – Floor 1'), findsOneWidget);
       expect(_mask(tester).aperture, closeTo(0, 0.001));
       expect(
         _mask(tester).center,

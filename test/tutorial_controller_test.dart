@@ -9,6 +9,29 @@ enum _Control { portrait, grid }
 
 void main() {
   testWidgets(
+    'Disabled and skipped tutorials release controls and cancel timers',
+    (tester) async {
+      const sequence = TutorialSequence([
+        TutorialStep(id: 'wait', delay: Duration(milliseconds: 500)),
+        TutorialStep(id: 'select', advanceOn: _Event.select),
+      ]);
+      final disabled = TutorialController(sequence, isEnabled: false);
+      final active = TutorialController(sequence);
+      addTearDown(disabled.dispose);
+      addTearDown(active.dispose);
+      expect(disabled.isComplete, isTrue);
+      expect(disabled.allows(_Control.grid), isTrue);
+      active.skip();
+      active.skip();
+      await tester.pump(const Duration(seconds: 1));
+      active.signal(_Event.select);
+      expect(active.isComplete, isTrue);
+      expect(active.currentStep, isNull);
+      expect(active.allowsInput, isTrue);
+      expect(active.emphasizes(_Control.grid), isFalse);
+    },
+  );
+  testWidgets(
     'Reusable steps accept caller events, preserve delays and restrict controls',
     (tester) async {
       final controller = TutorialController(

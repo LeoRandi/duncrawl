@@ -40,52 +40,48 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Selection highlights reveal only the player and portrait plus stats',
-    (tester) async {
-      await _finishDialogue(tester);
-      expect(find.byType(TutorialSpotlight), findsNothing);
-      await tester.tapAt(
-        tester.getCenter(find.byKey(const ValueKey('player'))),
-      );
-      await tester.tapAt(tester.getCenter(find.byTooltip('Menu')));
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(_board(tester).isSelected, isFalse);
-      expect(find.byType(TutorialSpotlight), findsNothing);
-      await tester.pump(const Duration(milliseconds: 100));
-      final spotlight = _spotlight(tester);
-      final player = _targetRect(tester, DungeonTutorialTarget.character);
-      final portrait = _targetRect(tester, DungeonTutorialTarget.portrait);
-      final path = _shade(tester);
-      expect(path.contains(player.center), isFalse);
-      expect(path.contains(portrait.center), isFalse);
-      expect(path.contains(tester.getCenter(find.byTooltip('Menu'))), isTrue);
-      expect(spotlight.specification.shadeOpacity, 0.5);
-      expect(
-        find.text('Select your character to allow movement'),
-        findsOneWidget,
-      );
-      final hint = tester.getRect(find.byKey(const ValueKey('tutorial-hint')));
-      expect(hint.center.dy, closeTo((portrait.bottom + player.top) / 2, 0.01));
+  testWidgets('Selection highlights reveal only the player and portrait', (
+    tester,
+  ) async {
+    await _finishDialogue(tester);
+    expect(find.byType(TutorialSpotlight), findsNothing);
+    await tester.tapAt(tester.getCenter(find.byKey(const ValueKey('player'))));
+    await tester.tapAt(tester.getCenter(find.byTooltip('Menu')));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(_board(tester).isSelected, isFalse);
+    expect(find.byType(TutorialSpotlight), findsNothing);
+    await tester.pump(const Duration(milliseconds: 100));
+    final spotlight = _spotlight(tester);
+    final player = _targetRect(tester, DungeonTutorialTarget.character);
+    final portrait = _targetRect(tester, DungeonTutorialTarget.portrait);
+    final path = _shade(tester);
+    expect(path.contains(player.center), isFalse);
+    expect(path.contains(portrait.center), isFalse);
+    expect(path.contains(tester.getCenter(find.byTooltip('Menu'))), isTrue);
+    expect(spotlight.specification.shadeOpacity, 0.5);
+    expect(
+      find.text('Select your character to allow movement'),
+      findsOneWidget,
+    );
+    final hint = tester.getRect(find.byKey(const ValueKey('tutorial-hint')));
+    expect(hint.center.dy, closeTo((portrait.bottom + player.top) / 2, 0.01));
 
-      await tester.dragFrom(
-        _gridRect(tester).topLeft + const Offset(10, 10),
-        const Offset(80, 0),
-      );
-      await tester.tapAt(tester.getCenter(find.byTooltip('Menu')));
-      await tester.binding.handlePopRoute();
-      await tester.pump();
-      expect(_board(tester).isSelected, isFalse);
-      expect(_board(tester).movementPath, isEmpty);
-      expect(find.byType(GameMenuDialog), findsNothing);
-      // Las estadísticas forman parte de la zona seleccionable, además del retrato.
-      await tester.tap(find.text('HP 10/10').first);
-      await tester.pump();
-      expect(_board(tester).isSelected, isTrue);
-      expect(find.byType(TutorialSpotlight), findsNothing);
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+    await tester.dragFrom(
+      _gridRect(tester).topLeft + const Offset(10, 10),
+      const Offset(80, 0),
+    );
+    await tester.tapAt(tester.getCenter(find.byTooltip('Menu')));
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(_board(tester).isSelected, isFalse);
+    expect(_board(tester).movementPath, isEmpty);
+    expect(find.byType(GameMenuDialog), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('player-portrait')));
+    await tester.pump();
+    expect(_board(tester).isSelected, isTrue);
+    expect(find.byType(TutorialSpotlight), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'Grid selection, drag, pulsing Confirm, completed walk and stairs form one guide',

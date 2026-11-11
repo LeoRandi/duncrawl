@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
+import '../../settings/domain/movement_speed.dart';
 
 import '../domain/dungeon.dart';
 import '../domain/dungeon_floor.dart';
@@ -10,14 +11,16 @@ import '../domain/grid_position.dart';
 import '../domain/ground_object_interaction_context.dart';
 import '../domain/ground_object_interaction_request.dart';
 import '../domain/movement_plan.dart';
+import '../domain/tile_inspection.dart';
 
 enum MovementPhase { idle, dragging, awaitingConfirmation, moving }
 
 class DungeonController extends ChangeNotifier {
-  static const stepDuration = Duration(milliseconds: 300);
+  static final stepDuration = MovementSpeed.defaultSpeed.stepInterval;
   static final _movementMenuLock = Object();
 
   final Set<Object> _bottomMenuLocks = {};
+  final Duration Function() _movementInterval;
   Dungeon _dungeon;
   late MovementPlan _plan = _newPlan();
   final bool Function(InteractiveDungeonGroundObject object)
@@ -27,18 +30,22 @@ class DungeonController extends ChangeNotifier {
   MovementPhase _phase = MovementPhase.idle;
   Timer? _movementTimer;
   int _nextStep = 0;
-  bool _isSelected = false;
+  GridPosition? _selectedPosition;
   bool _isPaused = false;
   bool _isInteracting = false;
   FloorChangeRequest? _pendingFloorChange;
 
   DungeonController(
     this._dungeon, {
+    Duration Function()? movementInterval,
     bool Function(InteractiveDungeonGroundObject object)? requiresConfirmation,
-  }) : _requiresConfirmation =
+  }) : _movementInterval = movementInterval ?? _defaultMovementInterval,
+       _requiresConfirmation =
            requiresConfirmation ?? _defaultConfirmationPolicy {
     _interactAtPlayer();
   }
+
+  static Duration _defaultMovementInterval() => stepDuration;
 
   static bool _defaultConfirmationPolicy(
     InteractiveDungeonGroundObject object,
@@ -56,12 +63,21 @@ class DungeonController extends ChangeNotifier {
   MovementPhase get phase => _phase;
   bool get isMoving => _phase == MovementPhase.moving;
   bool get canConfirm =>
-      _isSelected &&
+      isSelected &&
       isBottomMenuEnabled &&
       _plan.path.isNotEmpty &&
       (_phase == MovementPhase.dragging ||
           _phase == MovementPhase.awaitingConfirmation);
-  bool get isSelected => _isSelected;
+  bool get isSelected => _selectedPosition == _dungeon.player;
+  GridPosition? get selectedPosition => _selectedPosition;
+  TileInspection? get inspectedTile {
+    final position = _selectedPosition;
+    if (position == null || isSelected) {
+      return null;
+    }
+    return _dungeon.floor.inspectTile(position);
+  }
+
   bool get isPaused => _isPaused;
   bool get isBottomMenuEnabled =>
       !_isPaused &&
@@ -70,6 +86,7 @@ class DungeonController extends ChangeNotifier {
       _bottomMenuLocks.isEmpty;
   FloorChangeRequest? get pendingFloorChange => _pendingFloorChange;
   GroundObjectInteractionRequest? get pendingInteraction => _pendingInteraction;
+  bool get _canSelect => isBottomMenuEnabled && !isMoving && !_isInteracting;
 
   bool completeFloorChange(DungeonFloor floor) {
     final request = _pendingFloorChange;
@@ -87,7 +104,7 @@ class DungeonController extends ChangeNotifier {
     _interactionQueue.clear();
     _phase = MovementPhase.idle;
     _nextStep = 0;
-    _isSelected = false;
+    _selectedPosition = null;
     _interactAtPlayer();
     _plan = _newPlan();
     notifyListeners();
@@ -200,6 +217,12 @@ class DungeonController extends ChangeNotifier {
       );
     }
     _dungeon = dungeon;
+    final position = _selectedPosition;
+    if (position != null &&
+        !isSelected &&
+        _dungeon.floor.inspectTile(position) == null) {
+      _selectedPosition = null;
+    }
   }
 
   void _requestFloorChange(int floorNumber) {
@@ -230,27 +253,46 @@ class DungeonController extends ChangeNotifier {
   }
 
   void selectCharacter() {
-    if (_isSelected || _isPaused) {
+    if (isSelected || !_canSelect) {
       return;
     }
 
-    _isSelected = true;
+    _selectPosition(_dungeon.player);
+  }
+
+  /// Selecciona lo visible sin activar objetos; una casilla vacía limpia la selección.
+  void selectTile(GridPosition position) {
+    if (!_canSelect || !_dungeon.floor.contains(position)) {
+      return;
+    }
+    if (position == _dungeon.player) {
+      selectCharacter();
+      return;
+    }
+    if (_dungeon.floor.inspectTile(position) == null) {
+      unselect();
+      return;
+    }
+    _selectPosition(position);
+  }
+
+  void _selectPosition(GridPosition? position) {
+    _selectedPosition = position;
+    _nextStep = 0;
+    _phase = MovementPhase.idle;
+    _plan = _newPlan();
     notifyListeners();
   }
 
   /// Cancela la selección y el turno pendiente cuando el menú está disponible.
   void unselect() {
-    if (!isBottomMenuEnabled) {
+    if (!_canSelect) {
       return;
     }
 
     _movementTimer?.cancel();
     _movementTimer = null;
-    _nextStep = 0;
-    _isSelected = false;
-    _phase = MovementPhase.idle;
-    _plan = _newPlan();
-    notifyListeners();
+    _selectPosition(null);
   }
 
   void pause() {
@@ -270,7 +312,7 @@ class DungeonController extends ChangeNotifier {
     }
     _isPaused = false;
     if (isMoving) {
-      _movementTimer = Timer.periodic(stepDuration, (_) => _advance());
+      _movementTimer = Timer.periodic(_movementInterval(), (_) => _advance());
     }
     notifyListeners();
   }
@@ -284,7 +326,7 @@ class DungeonController extends ChangeNotifier {
   }
 
   void beginDrag() {
-    if (!_isSelected || !isBottomMenuEnabled || isMoving) {
+    if (!isSelected || !isBottomMenuEnabled || isMoving) {
       return;
     }
 
@@ -294,7 +336,7 @@ class DungeonController extends ChangeNotifier {
   }
 
   void preview(DungeonDirection direction, {int steps = 1}) {
-    if (!_isSelected ||
+    if (!isSelected ||
         !isBottomMenuEnabled ||
         _phase != MovementPhase.dragging) {
       return;
@@ -343,12 +385,13 @@ class DungeonController extends ChangeNotifier {
 
     _phase = MovementPhase.moving;
     _nextStep = 0;
-    _movementTimer = Timer.periodic(stepDuration, (_) => _advance());
+    _movementTimer = Timer.periodic(_movementInterval(), (_) => _advance());
     disableBottomMenu(_movementMenuLock);
   }
 
   void _advance() {
     _dungeon = _dungeon.stepTo(_plan.path[_nextStep]);
+    _selectedPosition = _dungeon.player;
     _nextStep++;
     final interactionStopsMovement = _interactAtPlayer();
     if (_nextStep == _plan.path.length || interactionStopsMovement) {

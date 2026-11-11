@@ -6,9 +6,10 @@ import 'dungeon_controller.dart';
 import 'dungeon_strings.dart';
 import 'adventurer_information.dart';
 import 'selection_frame.dart';
+import 'tile_inspection_view.dart';
 
 class MovementMenu extends StatelessWidget {
-  static const minimumHeight = 160.0;
+  static const minimumHeight = 216.0;
 
   final DungeonController controller;
   final bool enabled;
@@ -38,23 +39,29 @@ class MovementMenu extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(DungeonTheme.cornerRadius),
           ),
-          child: controller.isSelected
-              ? _SelectedCharacterMenu(
-                  controller: controller,
-                  pulseConfirm: pulseConfirm,
-                )
-              : Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(DungeonTheme.spacing),
-                    child: Text(
-                      DungeonStrings.selectPrompt,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: DungeonColors.textDisabled,
-                      ),
-                    ),
+          child: switch (controller.inspectedTile) {
+            final inspection? => TileInspectionView(
+              key: ValueKey(inspection.position),
+              inspection: inspection,
+              onUnselect: controller.unselect,
+            ),
+            null when controller.isSelected => _SelectedCharacterMenu(
+              controller: controller,
+              pulseConfirm: pulseConfirm,
+            ),
+            null => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(DungeonTheme.spacing),
+                child: Text(
+                  DungeonStrings.selectPrompt,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: DungeonColors.textDisabled,
                   ),
                 ),
+              ),
+            ),
+          },
         ),
       ),
     );
@@ -90,7 +97,7 @@ class _SelectedCharacterMenu extends StatelessWidget {
       final canConfirm = controller.canConfirm;
       return Padding(
         padding: EdgeInsets.all(
-          constraints.maxHeight < 180
+          compact || constraints.maxHeight < 180
               ? DungeonTheme.spacing
               : DungeonTheme.pagePadding,
         ),
@@ -105,7 +112,7 @@ class _SelectedCharacterMenu extends StatelessWidget {
                     key: const ValueKey('selected-character-info'),
                     adventurer: controller.dungeon.adventurer,
                     portrait: AdventurerPortrait(
-                      size: constraints.maxHeight < 180 ? 36 : 44,
+                      size: compact || constraints.maxHeight < 180 ? 36 : 44,
                     ),
                     textStyle: compact
                         ? Theme.of(context).textTheme.bodySmall
@@ -126,7 +133,25 @@ class _SelectedCharacterMenu extends StatelessWidget {
               ],
             ),
             const SizedBox(height: DungeonTheme.spacing),
-            const Spacer(),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      DungeonStrings.adventurer,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: DungeonTheme.spacing),
+                    Text(
+                      DungeonStrings.adventurerDescription,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: DungeonTheme.spacing),
             Row(
               children: [
                 Expanded(

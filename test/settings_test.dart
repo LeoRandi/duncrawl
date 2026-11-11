@@ -3,12 +3,83 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:duncrawl/features/dialogue/presentation/dialogue_window.dart';
 import 'package:duncrawl/features/dungeon/presentation/dungeon_page.dart';
+import 'package:duncrawl/features/dungeon/presentation/dungeon_board.dart';
+import 'package:duncrawl/features/dungeon/domain/grid_position.dart';
+import 'package:duncrawl/features/tutorial/presentation/tutorial_spotlight.dart';
+import 'package:duncrawl/features/settings/domain/movement_speed.dart';
 import 'package:duncrawl/features/settings/domain/text_speed.dart';
 import 'package:duncrawl/main.dart';
 
 import 'helpers/dialogue_helpers.dart';
 
 void main() {
+  testWidgets(
+    'Instant reveals an optional tutorial bypass and movement speed reaches gameplay',
+    (tester) async {
+      await tester.pumpWidget(const DungeonCrawlerApp());
+      await _openSettings(tester);
+      expect(find.byKey(const ValueKey('skip-tutorials-switch')), findsNothing);
+      expect(_slider(tester, 'movement-speed-slider').value, 1);
+      await _selectSpeed(tester, TextSpeed.instant);
+      expect(find.byKey(const ValueKey('skip-tutorials-switch')), findsNothing);
+      await tester.ensureVisible(find.text('Instant'));
+      await tester.tap(find.text('Instant'));
+      await tester.pumpAndSettle();
+      expect(_switch(tester, 'skip-tutorials-switch').value, isFalse);
+      await _toggleSetting(tester, 'skip-tutorials-switch');
+      final movementSlider = find.byKey(
+        const ValueKey('movement-speed-slider'),
+      );
+      await tester.ensureVisible(movementSlider);
+      await tester.drag(movementSlider, const Offset(300, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('Movement speed: Ultra Fast'), findsOneWidget);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+      await _openSettings(tester);
+      expect(_switch(tester, 'skip-tutorials-switch').value, isTrue);
+      expect(_slider(tester, 'movement-speed-slider').value, 3);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Start'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DialogueWindow), findsNothing);
+      expect(find.byType(TutorialSpotlight), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('player-portrait')));
+      await tester.pump();
+      expect(
+        tester.widget<DungeonBoard>(find.byType(DungeonBoard)).isSelected,
+        isTrue,
+      );
+      final board = find.byType(DungeonBoard);
+      final settings = tester
+          .widget<DungeonPage>(find.byType(DungeonPage))
+          .settings
+          .value;
+      expect(settings.movementSpeed, MovementSpeed.ultraFast);
+      final distance =
+          tester.getSize(board).width / 15 * settings.dragDistanceMultiplier;
+      await tester.drag(board, Offset(distance * 1.2, 0));
+      await tester.pump();
+      await tester.tap(find.text('Confirm'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 49));
+      expect(
+        tester.widget<DungeonBoard>(board).player,
+        const GridPosition(7, 7),
+      );
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(
+        tester.widget<DungeonBoard>(board).player,
+        const GridPosition(8, 7),
+      );
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byType(DialogueWindow), findsNothing);
+      expect(find.byType(TutorialSpotlight), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets(
     'Defaults are sensitivity 4 and Medium, and Fast reaches the tutorial',
     (tester) async {
@@ -66,6 +137,9 @@ void main() {
       expect(_switch(tester, 'auto-climb-stairs-switch').value, isFalse);
       expect(_switch(tester, 'auto-pick-up-items-switch').value, isFalse);
       await _selectSpeed(tester, TextSpeed.slow);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('movement-sensitivity-slider')),
+      );
       await tester.drag(
         find.byKey(const ValueKey('movement-sensitivity-slider')),
         const Offset(-300, 0),
@@ -127,7 +201,7 @@ void main() {
       await tester.binding.setSurfaceSize(size);
       await tester.pumpWidget(const DungeonCrawlerApp());
       await _openSettings(tester);
-      expect(find.byType(Slider), findsNWidgets(2));
+      expect(find.byType(Slider), findsNWidgets(3));
       expect(find.byType(SwitchListTile), findsNWidgets(2));
       await _toggleSetting(tester, 'auto-pick-up-items-switch');
       expect(tester.takeException(), isNull);
@@ -145,6 +219,7 @@ Future<void> _openSettings(WidgetTester tester) async {
 
 Future<void> _selectSpeed(WidgetTester tester, TextSpeed speed) async {
   final slider = find.byKey(const ValueKey('text-speed-slider'));
+  await tester.ensureVisible(slider);
   final rect = tester.getRect(slider);
   await tester.tapAt(
     Offset(

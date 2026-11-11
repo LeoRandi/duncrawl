@@ -8,9 +8,9 @@ import '../../../app/dungeon_theme.dart';
 import '../../../widgets/interaction_gate.dart';
 import '../../../widgets/iris_transition.dart';
 import '../../dialogue/presentation/show_dialogue.dart';
-import '../domain/adventurer.dart';
 import '../domain/dungeon.dart';
 import '../domain/dungeon_floor.dart';
+import '../domain/grid_position.dart';
 import '../floors/floor_0.dart';
 import '../floors/dungeon_floors.dart';
 import '../../settings/domain/game_settings.dart';
@@ -51,8 +51,12 @@ class _DungeonPageState extends State<DungeonPage> {
   late final _controller = DungeonController(
     Dungeon.start(floor0.create()),
     requiresConfirmation: _requiresInteractionConfirmation,
+    movementInterval: () => widget.settings.value.movementSpeed.stepInterval,
   );
-  final _tutorial = TutorialController(OpeningTutorial.guide);
+  late final _tutorial = TutorialController(
+    OpeningTutorial.guide,
+    isEnabled: !widget.settings.value.skipTutorials,
+  );
   late final _playerAnchorKey =
       widget.playerAnchorKey ??
       GlobalKey(debugLabel: 'player-transition-anchor');
@@ -88,6 +92,7 @@ class _DungeonPageState extends State<DungeonPage> {
     super.initState();
     _controller.addListener(_onDungeonChanged);
     _tutorial.addListener(_onTutorialChanged);
+    widget.settings.addListener(_onSettingsChanged);
     _controller.pause();
     unawaited(_scheduleTutorial());
   }
@@ -97,9 +102,20 @@ class _DungeonPageState extends State<DungeonPage> {
     if (!mounted || _isLeaving) {
       return;
     }
+    if (widget.settings.value.skipTutorials) {
+      _controller.resume();
+      return;
+    }
     _tutorialTimer = Timer(OpeningTutorial.delay, () {
       unawaited(_showTutorial());
     });
+  }
+
+  void _onSettingsChanged() {
+    if (widget.settings.value.skipTutorials) {
+      _tutorialTimer?.cancel();
+      _tutorial.skip();
+    }
   }
 
   Future<void> _showTutorial() async {
@@ -218,6 +234,18 @@ class _DungeonPageState extends State<DungeonPage> {
     }
   }
 
+  void _selectTile(GridPosition position) {
+    if (position == _controller.dungeon.player) {
+      _selectCharacter();
+      return;
+    }
+    // Las ayudas conservan sus objetivos y controles hasta completar la guía.
+    if (!_tutorial.isComplete) {
+      return;
+    }
+    _controller.selectTile(position);
+  }
+
   Future<void> _returnToMainMenu(Offset closingCenter) async {
     if (!_tutorial.allows(DungeonTutorialControl.menu) ||
         _isChangingFloor ||
@@ -299,6 +327,7 @@ class _DungeonPageState extends State<DungeonPage> {
 
   @override
   void dispose() {
+    widget.settings.removeListener(_onSettingsChanged);
     _tutorialTimer?.cancel();
     _tutorial.removeListener(_onTutorialChanged);
     _tutorial.dispose();
@@ -337,8 +366,6 @@ class _DungeonPageState extends State<DungeonPage> {
                         child: Column(
                           children: [
                             _DungeonHeader(
-                              floorNumber: _controller.dungeon.floor.number,
-                              adventurer: _controller.dungeon.adventurer,
                               isSelected: _controller.isSelected,
                               onSelect:
                                   _tutorial.allows(
@@ -450,6 +477,9 @@ class _DungeonPageState extends State<DungeonPage> {
                                                   _controller.remainingPath,
                                               isSelected:
                                                   _controller.isSelected,
+                                              selectedTile:
+                                                  _controller.selectedPosition,
+                                              onSelectTile: _selectTile,
                                               onSelectPlayer:
                                                   _tutorial.allows(
                                                     DungeonTutorialControl
@@ -515,16 +545,12 @@ class _DungeonPageState extends State<DungeonPage> {
 }
 
 class _DungeonHeader extends StatelessWidget {
-  final int floorNumber;
-  final Adventurer adventurer;
   final bool isSelected;
   final VoidCallback? onSelect;
   final VoidCallback? onMenu;
   final GlobalKey portraitAnchorKey;
 
   const _DungeonHeader({
-    required this.floorNumber,
-    required this.adventurer,
     required this.isSelected,
     required this.onSelect,
     required this.onMenu,
@@ -537,51 +563,46 @@ class _DungeonHeader extends StatelessWidget {
     children: [
       Row(
         children: [
-          Expanded(
-            child: Text(
-              DungeonStrings.floor(floorNumber),
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-          ),
-          const SizedBox(width: DungeonTheme.spacing),
-          IconButton(
-            tooltip: DungeonStrings.menu,
-            onPressed: onMenu,
-            style: IconButton.styleFrom(
-              foregroundColor: DungeonColors.textPrimary,
-              side: const BorderSide(color: DungeonColors.textSecondary),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DungeonTheme.cornerRadius),
-              ),
-            ),
-            icon: const Icon(Icons.menu_rounded),
-          ),
-        ],
-      ),
-      const SizedBox(height: DungeonTheme.spacing),
-      const Divider(height: 1),
-      const SizedBox(height: DungeonTheme.spacing),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: Semantics(
-          button: true,
-          selected: isSelected,
-          label: DungeonStrings.selectAdventurer,
-          child: GestureDetector(
-            key: portraitAnchorKey,
-            behavior: HitTestBehavior.opaque,
-            onTap: onSelect,
-            child: AdventurerInformation(
-              adventurer: adventurer,
-              portrait: SelectionFrame(
-                selected: isSelected,
-                child: const AdventurerPortrait(
-                  key: ValueKey('player-portrait'),
+          Semantics(
+            button: true,
+            selected: isSelected,
+            label: DungeonStrings.selectAdventurer,
+            child: GestureDetector(
+              key: portraitAnchorKey,
+              behavior: HitTestBehavior.opaque,
+              onTap: onSelect,
+              child: SizedBox.square(
+                dimension: 48,
+                child: Center(
+                  child: SelectionFrame(
+                    selected: isSelected,
+                    child: const AdventurerPortrait(
+                      key: ValueKey('player-portrait'),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+          const Spacer(),
+          SizedBox.square(
+            dimension: 48,
+            child: IconButton(
+              tooltip: DungeonStrings.menu,
+              onPressed: onMenu,
+              style: IconButton.styleFrom(
+                foregroundColor: DungeonColors.textPrimary,
+                side: const BorderSide(color: DungeonColors.textSecondary),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    DungeonTheme.cornerRadius,
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.menu_rounded),
+            ),
+          ),
+        ],
       ),
       const SizedBox(height: DungeonTheme.spacing),
       const Divider(height: 1),

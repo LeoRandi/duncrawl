@@ -56,6 +56,8 @@ void main() {
       await _startGame(tester, select: false);
       final prompt = find.text('Select something to continue');
       expect(prompt, findsOneWidget);
+      expect(find.text('Lv. 1'), findsNothing);
+      expect(find.text('HP 10/10'), findsNothing);
       expect(
         tester.getCenter(prompt),
         tester.getCenter(find.byKey(const ValueKey('option-menu'))),
@@ -252,7 +254,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    expect(find.byType(Slider), findsNWidgets(2));
+    expect(find.byType(Slider), findsNWidgets(3));
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
@@ -450,20 +452,26 @@ void main() {
     expect(board.floor.number, 0);
     expect(find.byIcon(Icons.stairs_rounded), findsOneWidget);
     expect(find.byKey(const ValueKey('option-menu')), findsOneWidget);
-    expect(find.text('Tower – Floor 0'), findsOneWidget);
-    expect(find.text('Lv. 1'), findsNWidgets(2));
-    expect(find.text('HP 10/10'), findsNWidgets(2));
-    expect(find.text('Adventurer'), findsNothing);
+    expect(find.text('Tower – Floor 0'), findsNothing);
+    expect(find.text('Lv. 1'), findsOneWidget);
+    expect(find.text('HP 10/10'), findsOneWidget);
+    expect(find.text('Adventurer'), findsOneWidget);
 
     final portrait = tester.getRect(
       find.byKey(const ValueKey('player-portrait')),
     );
-    final floor = tester.getRect(find.text('Tower – Floor 0'));
-    final level = tester.getRect(find.text('Lv. 1').first);
-    final health = tester.getRect(find.text('HP 10/10').first);
-    expect(floor.bottom, lessThan(portrait.top));
-    expect(level.center.dy, greaterThanOrEqualTo(portrait.top));
-    expect(health.center.dy, lessThanOrEqualTo(portrait.bottom));
+    final menuButton = tester.getRect(find.byTooltip('Menu'));
+    expect(menuButton.center.dy, closeTo(portrait.center.dy, 0.01));
+    expect(menuButton.left, greaterThan(portrait.right));
+    final information = find.byKey(const ValueKey('selected-character-info'));
+    expect(
+      find.descendant(of: information, matching: find.text('Lv. 1')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: information, matching: find.text('HP 10/10')),
+      findsOneWidget,
+    );
 
     final boardRect = tester.getRect(find.byType(DungeonBoard));
     final playerRect = tester.getRect(find.byKey(const ValueKey('player')));
@@ -627,7 +635,7 @@ void main() {
       tester.getCenter(find.byType(DungeonBoard)),
       tester.getTopLeft(find.byKey(const ValueKey('option-menu'))) +
           const Offset(5, 5),
-      tester.getCenter(find.text('Tower – Floor 0')),
+      tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
       const Offset(5, 250),
     ];
     for (final target in targets) {
