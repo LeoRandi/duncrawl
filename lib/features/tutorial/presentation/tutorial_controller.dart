@@ -6,22 +6,20 @@ import 'tutorial_sequence.dart';
 
 /// Avanza por eventos o por tiempo y cancela las esperas al liberar el tutorial.
 class TutorialController extends ChangeNotifier {
-  final TutorialSequence sequence;
+  late TutorialSequence _sequence;
   int _stepIndex = 0;
   Timer? _stepTimer;
 
-  TutorialController(this.sequence, {bool isEnabled = true}) {
-    if (sequence.steps.isEmpty) {
-      throw ArgumentError.value(
-        sequence.steps,
-        'sequence.steps',
-        'Must not be empty',
-      );
-    }
-    if (!isEnabled) {
-      _stepIndex = sequence.steps.length;
-    }
-    _scheduleStep();
+  TutorialController(TutorialSequence sequence, {bool isEnabled = true}) {
+    _resetSequence(sequence, isEnabled: isEnabled);
+  }
+
+  TutorialSequence get sequence => _sequence;
+
+  /// Sustituye la guía activa y cancela las esperas de la anterior.
+  void start(TutorialSequence sequence, {bool isEnabled = true}) {
+    _resetSequence(sequence, isEnabled: isEnabled);
+    notifyListeners();
   }
 
   bool get isComplete => _stepIndex == sequence.steps.length;
@@ -50,6 +48,20 @@ class TutorialController extends ChangeNotifier {
     _stepTimer?.cancel();
     _stepIndex = sequence.steps.length;
     notifyListeners();
+  }
+
+  void _resetSequence(TutorialSequence sequence, {required bool isEnabled}) {
+    if (sequence.steps.isEmpty) {
+      throw ArgumentError.value(
+        sequence.steps,
+        'sequence.steps',
+        'Must not be empty',
+      );
+    }
+    _stepTimer?.cancel();
+    _sequence = sequence;
+    _stepIndex = isEnabled ? 0 : sequence.steps.length;
+    _scheduleStep();
   }
 
   void _advance() {

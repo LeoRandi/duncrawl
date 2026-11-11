@@ -54,6 +54,12 @@ abstract final class DungeonStrings {
   static const tutorialSelect = 'Select your character to allow movement';
   static const tutorialDrag = 'Now try dragging around to move the character';
   static const tutorialStairs = 'Use the stairs to exit this floor';
+  static const mysteriousVoice = 'Misteryous voice';
+  static const tutorialInspectTile =
+      'Tap a tile with letters or an object to select it and view its details.';
+  static const tutorialTileDetails =
+      'The bottom panel shows the selected tile\'s name, description and portrait. '
+      'Tap an empty tile to clear the selection.';
 
   static String textSpeedName(TextSpeed speed) => switch (speed) {
     TextSpeed.slow => slowText,

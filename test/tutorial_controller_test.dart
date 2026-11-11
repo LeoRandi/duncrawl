@@ -8,6 +8,33 @@ enum _Event { select, move }
 enum _Control { portrait, grid }
 
 void main() {
+  testWidgets('Starting a new lesson cancels the previous step timer', (
+    tester,
+  ) async {
+    final controller = TutorialController(
+      const TutorialSequence([
+        TutorialStep(id: 'old-wait', delay: Duration(milliseconds: 500)),
+      ]),
+    );
+    addTearDown(controller.dispose);
+    await tester.pump(const Duration(milliseconds: 250));
+    const next = TutorialSequence([
+      TutorialStep(id: 'new-wait', delay: Duration(milliseconds: 800)),
+      TutorialStep(id: 'new-action', advanceOn: _Event.select),
+    ]);
+    controller.start(next);
+    expect(controller.sequence, same(next));
+    await tester.pump(const Duration(milliseconds: 799));
+    expect(controller.currentStep?.id, 'new-wait');
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(controller.currentStep?.id, 'new-action');
+    controller.start(next, isEnabled: false);
+    expect(controller.isComplete, isTrue);
+    expect(controller.allowsInput, isTrue);
+    await tester.pump(const Duration(seconds: 1));
+    expect(controller.isComplete, isTrue);
+  });
+
   testWidgets(
     'Disabled and skipped tutorials release controls and cancel timers',
     (tester) async {

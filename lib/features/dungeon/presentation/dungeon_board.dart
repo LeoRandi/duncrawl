@@ -6,6 +6,7 @@ import '../domain/grid_position.dart';
 import 'dungeon_strings.dart';
 import 'movement_preview.dart';
 import 'selection_frame.dart';
+import 'tile_glyph.dart';
 
 /// Orden de composición del tablero, desde el fondo hasta la niebla.
 enum DungeonLayer {
@@ -87,7 +88,7 @@ class DungeonBoard extends StatelessWidget {
                             top: row * tileSize,
                             width: tileSize,
                             height: tileSize,
-                            child: _TileGlyph(
+                            child: TileGlyph(
                               key: ValueKey((
                                 'water',
                                 GridPosition(column, row),
@@ -95,7 +96,7 @@ class DungeonBoard extends StatelessWidget {
                               symbol: 'w',
                               label: DungeonStrings.water,
                               color: DungeonColors.water,
-                              tileSize: tileSize,
+                              fontSize: tileSize * 0.8,
                             ),
                           ),
                     // La ruta es una marca sobre el suelo, no una séptima capa.
@@ -142,12 +143,12 @@ class DungeonBoard extends StatelessWidget {
                             color: DungeonColors.textSecondary,
                             semanticLabel: DungeonStrings.stairs,
                           ),
-                          GroundObjectType.grass => _TileGlyph(
+                          GroundObjectType.grass => TileGlyph(
                             key: ValueKey(('grass', object.position)),
                             symbol: 'g',
                             label: DungeonStrings.grass,
                             color: DungeonColors.grass,
-                            tileSize: tileSize,
+                            fontSize: tileSize * 0.8,
                           ),
                         },
                       ),
@@ -206,35 +207,6 @@ class DungeonBoard extends StatelessWidget {
           ),
         );
       },
-    ),
-  );
-}
-
-class _TileGlyph extends StatelessWidget {
-  final String symbol;
-  final String label;
-  final Color color;
-  final double tileSize;
-
-  const _TileGlyph({
-    super.key,
-    required this.symbol,
-    required this.label,
-    required this.color,
-    required this.tileSize,
-  });
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Text(
-      symbol,
-      semanticsLabel: label,
-      textScaler: TextScaler.noScaling,
-      style: TextStyle(
-        fontFamily: 'monospace',
-        fontSize: tileSize * 0.8,
-        color: color,
-      ),
     ),
   );
 }

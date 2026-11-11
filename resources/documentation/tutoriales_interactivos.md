@@ -2,7 +2,8 @@
 
 Los componentes de `lib/features/tutorial/presentation/` no conocen las plantas,
 personajes ni reglas del dungeon. La configuración de la introducción vive en
-`OpeningTutorial.guide`, junto a sus textos iniciales.
+`OpeningTutorial.guide`, junto a sus textos iniciales. `FloorOneTutorial` define
+la lección de inspección de casillas de la segunda planta.
 
 ## Definir otra guía
 
@@ -44,6 +45,35 @@ acciones con `signal(event)` y consulta `allows(control)` o `emphasizes(control)
 Escucha sus cambios con el mecanismo habitual de Flutter. Al terminar la secuencia,
 todos los controles quedan habilitados y desaparece el énfasis. `dispose` cancela
 cualquier espera pendiente.
+
+`start(sequence)` sustituye la guía activa, cancela sus esperas y vuelve al primer
+paso. También admite `isEnabled: false` para dejar la secuencia completa sin
+reproducirla. Así una misma pantalla puede alojar varias lecciones sin duplicar
+controladores ni suscripciones.
+
+## Lecciones al entrar en una planta
+
+Registra las lecciones en `dungeonTutorials`, en `floor_tutorials.dart`, usando el
+número de planta como clave. Cada `DungeonTutorialLesson` contiene `delay` (espera
+tras descubrir la escena), `dialogue` y `guide`. El primer paso de la guía espera
+`DungeonTutorialEvent.dialogueFinished` sin habilitar controles.
+
+La pantalla prepara la lección al cambiar de planta con la pantalla en negro y
+programa su diálogo al terminar la apertura del iris. Durante la espera, el diálogo
+y las pausas entre pasos se bloquean el menú, la selección, la inspección y el
+movimiento. Solo se habilitan los controles indicados por cada paso. Las lecciones
+se muestran una vez por planta durante la partida y respetan Skip tutorials.
+
+La planta 0 conserva su espera inicial de un segundo. Al llegar a la planta 1 hay
+500 ms bloqueados y después dos mensajes de la voz. El fragmento completo
+`letters on the floor` es animado; conserva los intervalos de escritura de palabras
+animadas y los desfases de letras al revelar el texto al instante.
+
+Al cerrar el diálogo, incluida su animación de salida, hay otros 500 ms bloqueados.
+El foco descubre el tablero para inspeccionar una casilla con contenido; tocar
+suelo vacío no avanza la guía. Al seleccionar contenido se descubre el panel inferior,
+explicando nombre, descripción y retrato. Close termina la lección y permite
+seleccionar al personaje, moverlo o limpiar la selección tocando una casilla vacía.
 
 ## Luces y ventanas
 

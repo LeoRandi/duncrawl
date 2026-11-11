@@ -1,5 +1,6 @@
 import '../domain/dungeon_floor.dart';
 import '../domain/grid_position.dart';
+import '../domain/ground_object_interaction_context.dart';
 
 const floor1 = DungeonFloorTemplate(
   number: 1,
@@ -55,9 +56,16 @@ const floor1 = DungeonFloorTemplate(
     '...............',
   ],
   groundObjects: [
-    DungeonGroundObject(
+    InteractiveDungeonGroundObject(
       type: GroundObjectType.stairsUp,
       position: GridPosition(2, 2),
+      stopsMovement: true,
+      interactionKind: GroundObjectInteractionKind.stairs,
+      onInteract: _goUpstairs,
     ),
   ],
 );
+
+void _goUpstairs(GroundObjectInteractionContext context) {
+  context.requestFloorChange(2);
+}

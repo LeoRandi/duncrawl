@@ -24,8 +24,10 @@ class DialogueWindow extends StatefulWidget {
   State<DialogueWindow> createState() => _DialogueWindowState();
 }
 
-class _DialogueWindowState extends State<DialogueWindow> {
+class _DialogueWindowState extends State<DialogueWindow>
+    with SingleTickerProviderStateMixin {
   final _scrollController = ScrollController();
+  late final AnimationController _wobbleAnimation;
   Timer? _typingTimer;
   int _lineIndex = 0;
   int _visibleCharacters = 0;
@@ -40,11 +42,17 @@ class _DialogueWindowState extends State<DialogueWindow> {
   @override
   void initState() {
     super.initState();
+    _wobbleAnimation = AnimationController(
+      vsync: this,
+      duration: WobblyWord.cycleDuration,
+    );
     _startLine();
   }
 
   void _startLine() {
     _typingTimer?.cancel();
+    _wobbleAnimation.stop();
+    _wobbleAnimation.value = 0;
     _visibleCharacters = 0;
     _fragmentCharacters = widget.sequence.lines[_lineIndex].fragments
         .map((fragment) => fragment.text.characters.toList())
@@ -62,6 +70,7 @@ class _DialogueWindowState extends State<DialogueWindow> {
     if (widget.textSpeed == TextSpeed.instant) {
       _visibleCharacters = _characters.length;
     }
+    _startVisibleWobble();
     _scheduleNextCharacter();
   }
 
@@ -74,7 +83,10 @@ class _DialogueWindowState extends State<DialogueWindow> {
       isAnimated: _animatedCharacters[_visibleCharacters],
     );
     _typingTimer = Timer(interval, () {
-      setState(() => _visibleCharacters++);
+      setState(() {
+        _visibleCharacters++;
+        _startVisibleWobble();
+      });
       _scrollToEndAfterLayout();
       _scheduleNextCharacter();
     });
@@ -86,8 +98,18 @@ class _DialogueWindowState extends State<DialogueWindow> {
     }
 
     _typingTimer?.cancel();
-    setState(() => _visibleCharacters = _characters.length);
+    setState(() {
+      _visibleCharacters = _characters.length;
+      _startVisibleWobble();
+    });
     _scrollToEndAfterLayout();
+  }
+
+  void _startVisibleWobble() {
+    if (!_wobbleAnimation.isAnimating &&
+        _animatedCharacters.take(_visibleCharacters).contains(true)) {
+      _wobbleAnimation.repeat();
+    }
   }
 
   void _scrollToEndAfterLayout() {
@@ -123,6 +145,7 @@ class _DialogueWindowState extends State<DialogueWindow> {
   @override
   void dispose() {
     _typingTimer?.cancel();
+    _wobbleAnimation.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -152,18 +175,35 @@ class _DialogueWindowState extends State<DialogueWindow> {
         continue;
       }
 
-      // Una sola caja conserva la palabra animada en la misma línea.
-      spans.add(
-        WidgetSpan(
-          alignment: PlaceholderAlignment.baseline,
-          baseline: TextBaseline.alphabetic,
-          child: WobblyWord(
-            key: ValueKey('wobbly-word-$_lineIndex-$fragmentIndex'),
-            letters: letters,
-            style: textStyle.copyWith(fontWeight: FontWeight.bold),
+      // Cada palabra conserva su caja; los espacios permiten partir frases largas.
+      var wordStart = 0;
+      while (wordStart < letters.length) {
+        if (letters[wordStart].trim().isEmpty) {
+          spans.add(TextSpan(text: letters[wordStart]));
+          wordStart++;
+          continue;
+        }
+        var wordEnd = wordStart + 1;
+        while (wordEnd < letters.length && letters[wordEnd].trim().isNotEmpty) {
+          wordEnd++;
+        }
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: WobblyWord(
+              key: ValueKey(
+                'wobbly-word-$_lineIndex-$fragmentIndex-$wordStart',
+              ),
+              letters: letters.sublist(wordStart, wordEnd),
+              style: textStyle.copyWith(fontWeight: FontWeight.bold),
+              animation: _wobbleAnimation,
+              letterOffset: wordStart,
+            ),
           ),
-        ),
-      );
+        );
+        wordStart = wordEnd;
+      }
     }
 
     return Stack(

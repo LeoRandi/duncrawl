@@ -7,10 +7,11 @@ enum DungeonTutorialEvent {
   characterSelected,
   movementPreviewed,
   movementFinished,
+  tileInspected,
   hintClosed,
 }
 
-enum DungeonTutorialControl { selection, movement, menu, confirm }
+enum DungeonTutorialControl { selection, movement, menu, confirm, inspection }
 
 enum DungeonTutorialTarget { character, portrait, grid, stairs, menu }
 
@@ -105,7 +106,7 @@ abstract final class OpeningTutorial {
   ]);
 
   static const dialogue = DialogueSequence(
-    speaker: 'Misteryous voice',
+    speaker: DungeonStrings.mysteriousVoice,
     lines: [
       DialogueLine([DialogueFragment('...')]),
       DialogueLine([DialogueFragment('...Hey, wake up')]),

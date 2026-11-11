@@ -177,6 +177,15 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(TutorialSpotlight), findsNothing);
+      await tester.tap(find.byIcon(Icons.stairs_rounded));
+      await tester.pump();
+      expect(_board(tester).selectedTile, const GridPosition(7, 1));
+      expect(_board(tester).isSelected, isFalse);
+      expect(find.text('Upstairs'), findsOneWidget);
+      expect(find.text('Stairs leading to a higher floor.'), findsOneWidget);
+      expect(_board(tester).floor.number, 0);
+      await tester.tap(find.byKey(const ValueKey('player-portrait')));
+      await tester.pump();
       await tester.tap(find.byTooltip('Menu'));
       await tester.pump();
       expect(find.byType(GameMenuDialog), findsOneWidget);

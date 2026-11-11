@@ -19,6 +19,8 @@ import 'cardinal_drag.dart';
 import 'dungeon_board.dart';
 import 'dungeon_controller.dart';
 import 'dungeon_strings.dart';
+import 'dungeon_tutorial_lesson.dart';
+import 'floor_tutorials.dart';
 import '../../tutorial/presentation/tutorial_controller.dart';
 import 'movement_menu.dart';
 import 'opening_tutorial.dart';
@@ -57,6 +59,8 @@ class _DungeonPageState extends State<DungeonPage> {
     OpeningTutorial.guide,
     isEnabled: !widget.settings.value.skipTutorials,
   );
+  DungeonTutorialLesson? _activeLesson = dungeonTutorials[0];
+  final _visitedTutorialFloors = <int>{0};
   late final _playerAnchorKey =
       widget.playerAnchorKey ??
       GlobalKey(debugLabel: 'player-transition-anchor');
@@ -102,45 +106,79 @@ class _DungeonPageState extends State<DungeonPage> {
     if (!mounted || _isLeaving) {
       return;
     }
-    if (widget.settings.value.skipTutorials) {
-      _controller.resume();
+    _scheduleActiveLesson();
+  }
+
+  void _prepareTutorial(int floorNumber) {
+    _tutorialTimer?.cancel();
+    final lesson = dungeonTutorials[floorNumber];
+    if (lesson == null ||
+        widget.settings.value.skipTutorials ||
+        !_visitedTutorialFloors.add(floorNumber)) {
+      _activeLesson = null;
+      _tutorial.skip();
       return;
     }
-    _tutorialTimer = Timer(OpeningTutorial.delay, () {
-      unawaited(_showTutorial());
+    _activeLesson = lesson;
+    _tutorial.start(lesson.guide);
+  }
+
+  void _scheduleActiveLesson() {
+    final lesson = _activeLesson;
+    if (lesson == null ||
+        _tutorial.isComplete ||
+        widget.settings.value.skipTutorials) {
+      _updateInputState();
+      return;
+    }
+    _tutorialTimer?.cancel();
+    _tutorialTimer = Timer(lesson.delay, () {
+      unawaited(_showTutorial(lesson));
     });
   }
 
   void _onSettingsChanged() {
     if (widget.settings.value.skipTutorials) {
       _tutorialTimer?.cancel();
+      _activeLesson = null;
       _tutorial.skip();
     }
   }
 
-  Future<void> _showTutorial() async {
-    if (_isLeaving || ModalRoute.of(context)?.isCurrent != true) {
+  Future<void> _showTutorial(DungeonTutorialLesson lesson) async {
+    if (!mounted ||
+        _isLeaving ||
+        !identical(_activeLesson, lesson) ||
+        widget.settings.value.skipTutorials ||
+        ModalRoute.of(context)?.isCurrent != true) {
       return;
     }
 
     await showDialogue(
       context,
-      sequence: OpeningTutorial.dialogue,
+      sequence: lesson.dialogue,
       anchorKey: _movementMenuKey,
       textSpeed: widget.settings.value.textSpeed,
     );
-    if (mounted && !_isLeaving) {
+    if (mounted && !_isLeaving && identical(_activeLesson, lesson)) {
       _tutorial.signal(DungeonTutorialEvent.dialogueFinished);
     }
   }
 
   void _onTutorialChanged() {
-    if (_tutorial.allowsInput) {
+    _updateInputState();
+    setState(() {});
+  }
+
+  void _updateInputState() {
+    if (_tutorial.allowsInput &&
+        !_isChangingFloor &&
+        !_isConfirmingInteraction &&
+        !_isLeaving) {
       _controller.resume();
     } else {
       _controller.pause();
     }
-    setState(() {});
   }
 
   void _onDungeonChanged() {
@@ -184,7 +222,7 @@ class _DungeonPageState extends State<DungeonPage> {
     } finally {
       if (mounted && !_isLeaving) {
         setState(() => _isConfirmingInteraction = false);
-        _controller.resume();
+        _updateInputState();
       }
     }
   }
@@ -213,13 +251,18 @@ class _DungeonPageState extends State<DungeonPage> {
       await IrisTransition.run(
         context,
         closingCenter: IrisTransition.centerOf(_playerAnchorKey),
-        onCovered: () => _controller.completeFloorChange(nextFloor),
+        onCovered: () {
+          if (_controller.completeFloorChange(nextFloor)) {
+            _prepareTutorial(nextFloor.number);
+          }
+        },
         openingCenter: () => IrisTransition.centerOf(_playerAnchorKey),
       );
     } finally {
       if (mounted && !_isLeaving) {
         setState(() => _isChangingFloor = false);
-        _controller.resume();
+        _scheduleActiveLesson();
+        _updateInputState();
       }
     }
   }
@@ -239,11 +282,13 @@ class _DungeonPageState extends State<DungeonPage> {
       _selectCharacter();
       return;
     }
-    // Las ayudas conservan sus objetivos y controles hasta completar la guía.
-    if (!_tutorial.isComplete) {
+    if (!_tutorial.allows(DungeonTutorialControl.inspection)) {
       return;
     }
     _controller.selectTile(position);
+    if (_controller.inspectedTile != null) {
+      _tutorial.signal(DungeonTutorialEvent.tileInspected);
+    }
   }
 
   Future<void> _returnToMainMenu(Offset closingCenter) async {

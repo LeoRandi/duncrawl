@@ -5,10 +5,20 @@ import 'wobbly_letter.dart';
 
 /// El desfase por posición mantiene la onda aunque las letras aparezcan juntas.
 class WobblyWord extends StatefulWidget {
+  static const cycleDuration = Duration(milliseconds: 900);
+
   final List<String> letters;
   final TextStyle style;
+  final Animation<double>? animation;
+  final int letterOffset;
 
-  const WobblyWord({super.key, required this.letters, required this.style});
+  const WobblyWord({
+    super.key,
+    required this.letters,
+    required this.style,
+    this.animation,
+    this.letterOffset = 0,
+  });
 
   @override
   State<WobblyWord> createState() => _WobblyWordState();
@@ -16,19 +26,41 @@ class WobblyWord extends StatefulWidget {
 
 class _WobblyWordState extends State<WobblyWord>
     with SingleTickerProviderStateMixin {
-  static const _cycleDuration = Duration(milliseconds: 900);
-  late final AnimationController _animation;
+  AnimationController? _ownedAnimation;
+  late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
-    _animation = AnimationController(vsync: this, duration: _cycleDuration)
-      ..repeat();
+    _configureAnimation();
+  }
+
+  @override
+  void didUpdateWidget(WobblyWord oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.animation != widget.animation) {
+      _configureAnimation();
+    }
+  }
+
+  void _configureAnimation() {
+    final externalAnimation = widget.animation;
+    if (externalAnimation != null) {
+      _ownedAnimation?.stop();
+      _animation = externalAnimation;
+      return;
+    }
+    final controller = _ownedAnimation ??= AnimationController(
+      vsync: this,
+      duration: WobblyWord.cycleDuration,
+    );
+    _animation = controller;
+    controller.repeat();
   }
 
   @override
   void dispose() {
-    _animation.dispose();
+    _ownedAnimation?.dispose();
     super.dispose();
   }
 
@@ -45,9 +77,9 @@ class _WobblyWordState extends State<WobblyWord>
           style: widget.style,
           animation: _animation,
           phaseOffset:
-              index *
+              (widget.letterOffset + index) *
               TextSpeed.slow.letterInterval.inMicroseconds /
-              _cycleDuration.inMicroseconds,
+              WobblyWord.cycleDuration.inMicroseconds,
         ),
     ],
   );

@@ -2,6 +2,9 @@
 
 Cada planta se define con una plantilla en `lib/features/dungeon/floors/`.
 La planta inicial está en `floor_0.dart`; la segunda está en `floor_1.dart`.
+`floor_2.dart` es una plantilla vacía con paredes exteriores, aparición central
+`(7, 7)` y mapas de terreno y objetos listos para dibujar. Se accede desde la
+escalera de la planta 1. No tiene objetos ni lección de tutorial por ahora.
 
 1. Duplica una plantilla existente, por ejemplo `floor_1.dart` como `floor_2.dart`.
 2. Cambia el nombre de la constante a `floor2` y `number` a `2`.
@@ -122,11 +125,12 @@ sin ejecutar callbacks durante la previsualización. Al llegar a una escalera,
 la transición circular se cierra sobre el personaje, cambia de planta en negro y
 se abre sobre la nueva aparición. Se conservan su nivel, HP y velocidad, y se
 reinician la selección y la ruta. Los controles permanecen bloqueados durante la
-transición. El tutorial inicial no vuelve a reproducirse al subir.
+transición. El tutorial inicial no vuelve a reproducirse al subir; la planta 1
+incluye su propia lección de inspección, registrada en `dungeonTutorials`.
 
-Una escalera definida como `DungeonGroundObject` sigue siendo un marcador
-transitable sin interacción; así se ha dejado la de la planta 1 hasta crear la
-siguiente planta. Su aspecto no determina su comportamiento.
+Una escalera definida como `DungeonGroundObject` es un marcador transitable sin
+interacción; su aspecto no determina su comportamiento. Las escaleras actuales de
+las plantas 0 y 1 son interactivas y conducen a las plantas 1 y 2, respectivamente.
 
 ## Interacciones reutilizables
 
@@ -191,7 +195,7 @@ de la interfaz. No se recoge ni activa callbacks. La planta 1 dibuja la hierba e
 seguir añadiendo hierba individual a `groundObjects` cuando necesites una colocación
 explícita en vez del mapa de caracteres.
 
-Ambas plantas tienen 56 casillas de pared en el perímetro. La planta 0 conserva
+Las tres plantas tienen 56 casillas de pared en el perímetro. La planta 0 conserva
 169 casillas de suelo interior; la planta 1 también incluye paredes interiores.
 La planta 0 conserva la aparición central `(7, 7)` y la escalera superior `(7, 1)`,
 que conduce a la planta 1. Esta empieza en la zona inferior derecha y sitúa su

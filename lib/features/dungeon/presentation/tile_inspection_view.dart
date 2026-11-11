@@ -4,6 +4,7 @@ import '../../../app/dungeon_theme.dart';
 import '../domain/dungeon_floor.dart';
 import '../domain/tile_inspection.dart';
 import 'dungeon_strings.dart';
+import 'tile_glyph.dart';
 
 class TileInspectionView extends StatelessWidget {
   final TileInspection inspection;
@@ -152,16 +153,11 @@ class _InspectionPortrait extends StatelessWidget {
           ),
         ),
         child: switch ((content.glyph, content.icon)) {
-          (final glyph?, _) => Center(
-            child: Text(
-              glyph,
-              textScaler: TextScaler.noScaling,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 28,
-                color: content.color,
-              ),
-            ),
+          (final glyph?, _) => TileGlyph(
+            symbol: glyph,
+            label: content.name,
+            fontSize: 28,
+            color: content.color,
           ),
           (_, final icon?) => Icon(icon, size: 28, color: content.color),
           _ => ColoredBox(color: content.color),

@@ -13,11 +13,11 @@ import 'package:duncrawl/features/dungeon/domain/movement_plan.dart';
 import 'package:duncrawl/features/dungeon/floors/dungeon_floors.dart';
 import 'package:duncrawl/features/dungeon/floors/floor_0.dart';
 import 'package:duncrawl/features/dungeon/floors/floor_1.dart';
+import 'package:duncrawl/features/dungeon/floors/floor_2.dart';
 import 'package:duncrawl/features/dungeon/presentation/dungeon_board.dart';
 import 'package:duncrawl/features/dungeon/presentation/dungeon_controller.dart';
 import 'package:duncrawl/features/dungeon/presentation/dungeon_page.dart';
 import 'package:duncrawl/features/dungeon/presentation/game_menu_dialog.dart';
-import 'package:duncrawl/features/tutorial/presentation/tutorial_spotlight.dart';
 import 'package:duncrawl/main.dart';
 import 'package:duncrawl/widgets/iris_transition.dart';
 
@@ -26,7 +26,7 @@ import 'helpers/dialogue_helpers.dart';
 void main() {
   for (final template in dungeonFloors.values) {
     test(
-      'Floor ${template.number} has an impassable outer ring and reachable stairs',
+      'Floor ${template.number} has an impassable outer ring and any stairs are reachable',
       () {
         final floor = template.create();
         for (var row = 0; row < DungeonFloor.size; row++) {
@@ -105,15 +105,21 @@ void main() {
       expect(arrived.floor.number, 1);
       expect(arrived.player, destination.spawn);
       expect(arrived.adventurer, same(adventurer));
-      var unlinkedStairs = arrived;
+      var atNextStairs = arrived;
       for (final step in _routeTo(destination, _stairs(destination).position)) {
-        unlinkedStairs = unlinkedStairs.stepTo(step);
+        atNextStairs = atNextStairs.stepTo(step);
       }
-      expect(unlinkedStairs.player, _stairs(destination).position);
-      final inactiveStairs = DungeonController(unlinkedStairs);
-      addTearDown(inactiveStairs.dispose);
-      expect(inactiveStairs.pendingFloorChange, isNull);
-      expect(inactiveStairs.completeFloorChange(floor0.create()), isFalse);
+      expect(atNextStairs.player, _stairs(destination).position);
+      final nextController = DungeonController(atNextStairs);
+      addTearDown(nextController.dispose);
+      expect(nextController.pendingFloorChange?.floorNumber, 2);
+      expect(nextController.completeFloorChange(floor0.create()), isFalse);
+      final emptyFloor = floor2.create();
+      expect(nextController.completeFloorChange(emptyFloor), isTrue);
+      expect(nextController.dungeon.player, const GridPosition(7, 7));
+      expect(nextController.dungeon.floor.number, 2);
+      expect(nextController.dungeon.adventurer, same(adventurer));
+      expect(emptyFloor.groundObjects, isEmpty);
     },
   );
 
@@ -235,7 +241,7 @@ void main() {
   );
 
   testWidgets(
-    'Stairs use the iris to reach Floor 1 at its spawn without replaying the tutorial',
+    'Stairs reach Floor 1 with its own lesson and retain floor movement rules',
     (tester) async {
       await _reachStairs(tester);
       final center = tester.getCenter(find.byKey(const ValueKey('player')));
@@ -270,8 +276,8 @@ void main() {
       await tester.pump();
       expect(find.byType(IrisMask), findsNothing);
       await tester.pump(const Duration(seconds: 2));
-      expect(find.byType(DialogueWindow), findsNothing);
-      expect(find.byType(TutorialSpotlight), findsNothing);
+      expect(find.byType(DialogueWindow), findsOneWidget);
+      await completeFloorOneTutorial(tester);
       final grid = tester.getRect(find.byType(DungeonBoard));
       final tile = grid.width / DungeonFloor.size;
       final stairs = _stairs(_board(tester).floor).position;
