@@ -306,7 +306,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('player-portrait')));
     await tester.pump();
     await tester.drag(
-      find.byType(DungeonBoard),
+      await movementPad(tester),
       Offset(_stepDistance(tester) * 3, 0),
     );
     await tester.pump();
@@ -315,13 +315,15 @@ void main() {
       isTrue,
     );
     expect(_board(tester).movementPath.last.column, lessThan(14));
+    await tester.tap(find.byKey(const ValueKey('cancel-action')));
+    await tester.pump();
     final direction = DungeonDirection.values.firstWhere(
       (direction) => _board(
         tester,
       ).floor.canEnter(direction.stepFrom(_board(tester).player)),
     );
     await tester.drag(
-      find.byType(DungeonBoard),
+      await movementPad(tester),
       Offset(
         direction.columnOffset * _stepDistance(tester) * 1.1,
         direction.rowOffset * _stepDistance(tester) * 1.1,
@@ -421,7 +423,7 @@ void main() {
     expect(find.text('Special'), findsOneWidget);
     expect(find.text('Lv. 1'), findsOneWidget);
     expect(find.text('HP 3/3'), findsOneWidget);
-    expect(find.text('5(3)'), findsOneWidget);
+    expect(find.text('4(2)'), findsOneWidget);
     expect(find.text('Confirm'), findsNothing);
     final selectedBat = _board(tester).selectedTile;
     await tester.tap(find.byKey(const ValueKey('movement-stat-info')));
@@ -518,7 +520,9 @@ void main() {
       isTrue,
     );
     expect(
-      tester.widget<TileAreaOutline>(find.byType(TileAreaOutline)).color,
+      tester
+          .widget<TileAreaOutline>(find.byKey(const ValueKey('enemy-vision')))
+          .color,
       ShardColors.vision.unlocked,
     );
     await tester.tap(find.byKey(const ValueKey('player-portrait')));
@@ -559,7 +563,7 @@ Future<void> _reachStairs(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('player-portrait')));
   await tester.pump();
   await tester.drag(
-    find.byType(DungeonBoard),
+    await movementPad(tester),
     Offset(0, -_stepDistance(tester) * 5.1),
   );
   await tester.pump();
@@ -568,7 +572,7 @@ Future<void> _reachStairs(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 1500));
   expect(_board(tester).player, const GridPosition(7, 2));
   await tester.drag(
-    find.byType(DungeonBoard),
+    await movementPad(tester),
     Offset(0, -_stepDistance(tester) * 4),
   );
   await tester.pump();
@@ -587,7 +591,7 @@ Future<void> _walkRoute(WidgetTester tester, List<GridPosition> route) async {
   for (final next in route) {
     final current = _board(tester).player;
     await tester.drag(
-      find.byType(DungeonBoard),
+      await movementPad(tester),
       Offset(
         (next.column - current.column) * _stepDistance(tester) * 1.1,
         (next.row - current.row) * _stepDistance(tester) * 1.1,

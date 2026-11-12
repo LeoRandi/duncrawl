@@ -1,7 +1,14 @@
 import 'dungeon_actor.dart';
 import 'grid_position.dart';
 
-enum EnemyType { bat }
+enum EnemyType {
+  bat(stepInterval: Duration(milliseconds: 150));
+
+  /// Cadencia propia de la especie, independiente del ajuste del jugador.
+  final Duration stepInterval;
+
+  const EnemyType({required this.stepInterval});
+}
 
 class DungeonEnemy extends DungeonActor {
   final EnemyType type;
@@ -16,7 +23,7 @@ class DungeonEnemy extends DungeonActor {
     super.level = 1,
     super.health = 3,
     super.maximumHealth = 3,
-    super.movementSpeed = 5,
+    super.movementSpeed = 4,
     super.strength = 1,
     super.dexterity = 1,
     super.special = 1,
@@ -62,10 +69,11 @@ class DungeonEnemy extends DungeonActor {
       position.distanceTo(source) <= alertRadius;
 
   /// Distancia ortogonal: las diagonales consumen dos pasos del radio.
-  Set<GridPosition> get visionArea => Set.unmodifiable({
-    for (var dy = -visionRadius; dy <= visionRadius; dy++)
-      for (var dx = -visionRadius; dx <= visionRadius; dx++)
-        if (dx.abs() + dy.abs() <= visionRadius)
-          GridPosition(position.column + dx, position.row + dy),
-  });
+  Set<GridPosition> get visionArea => position.areaWithin(visionRadius);
+
+  Set<GridPosition> get alertArea => position.areaWithin(alertRadius);
+
+  /// Anticipa el alcance máximo del turno, sin descontar terreno ni movimiento gastado.
+  Set<GridPosition> get movementArea =>
+      position.areaWithin(combatMovementSpeed);
 }

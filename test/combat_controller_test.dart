@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:duncrawl/features/dungeon/domain/adventurer.dart';
 import 'package:duncrawl/features/dungeon/domain/dungeon.dart';
+import 'package:duncrawl/features/dungeon/domain/dungeon_enemy.dart';
 import 'package:duncrawl/features/dungeon/domain/dungeon_floor.dart';
 import 'package:duncrawl/features/dungeon/domain/game_event.dart';
 import 'package:duncrawl/features/dungeon/domain/grid_position.dart';
@@ -72,7 +73,7 @@ void main() {
       controller.cancelAttack();
       expect(controller.encounter?.actionAvailable, isTrue);
       controller.beginAttack();
-      controller.selectTile(const GridPosition(8, 7));
+      controller.aim(DungeonDirection.east);
       expect(controller.canStrike, isTrue);
       expect(controller.canEndTurn, isTrue);
       controller.strike();
@@ -122,7 +123,7 @@ void main() {
       expect(controller.pendingFloorChange, isNull);
       expect(climbs, 0);
       controller.beginAttack();
-      controller.selectTile(const GridPosition(9, 7));
+      controller.aim(DungeonDirection.east);
       controller.strike();
       expect(controller.isInCombat, isFalse);
       expect(climbs, 0);
@@ -181,7 +182,7 @@ void main() {
       (tester) async {
         final controller = DungeonController(
           combatFixture(enemies: [const GridPosition(8, 7)]),
-          movementInterval: () => interval,
+          playerMovementInterval: () => interval,
         );
         addTearDown(controller.dispose);
         controller.endTurn();
@@ -190,9 +191,9 @@ void main() {
         await tester.pump(interval * 10);
         expect(controller.dungeon.adventurer.health, 10);
         controller.resume();
-        await tester.pump(interval);
+        await tester.pump(EnemyType.bat.stepInterval);
         expect(controller.dungeon.adventurer.health, 9);
-        await tester.pump(interval);
+        await tester.pump(EnemyType.bat.stepInterval);
         expect(controller.isPlayerTurn, isTrue);
         expect(controller.encounter?.round, 2);
         expect(controller.encounter?.remainingMovement, 3);

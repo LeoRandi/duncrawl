@@ -18,6 +18,8 @@ class EncounterState {
        assert(round > 0),
        assert(remainingMovement >= 0);
 
+  bool get isExhausted => remainingMovement == 0 && !actionAvailable;
+
   EncounterState copyWith({
     Iterable<String>? enemyIds,
     Iterable<String>? enemyTurnOrder,

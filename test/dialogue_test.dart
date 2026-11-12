@@ -205,7 +205,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('player')));
       await tester.pump();
       expect(_board(tester).isSelected, isTrue);
-      await tester.drag(find.byType(DungeonBoard), const Offset(400, 0));
+      await tester.drag(await movementPad(tester), const Offset(400, 0));
       await tester.pump();
       await tester.tap(find.text('Confirm'));
       await tester.pump();

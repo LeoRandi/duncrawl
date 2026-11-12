@@ -28,6 +28,7 @@ void main() {
       final tokens = [
         ShardColors.bat,
         ShardColors.vision,
+        ShardColors.alert,
         ShardColors.mainMenu,
         ShardColors.adventurer,
         ShardColors.grass,
@@ -110,7 +111,9 @@ void main() {
         ),
       );
       expect(
-        tester.widget<TileAreaOutline>(find.byType(TileAreaOutline)).color,
+        tester
+            .widget<TileAreaOutline>(find.byKey(const ValueKey('enemy-vision')))
+            .color,
         ShardColors.vision.grey,
       );
       expect(
@@ -137,7 +140,9 @@ void main() {
         isTrue,
       );
       expect(
-        tester.widget<TileAreaOutline>(find.byType(TileAreaOutline)).color,
+        tester
+            .widget<TileAreaOutline>(find.byKey(const ValueKey('enemy-vision')))
+            .color,
         ShardColors.vision.unlocked,
       );
       expect(_mentionColor(tester, 'Bat', 'Bat'), ShardColors.bat.unlocked);

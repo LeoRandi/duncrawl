@@ -74,13 +74,16 @@ actúan y resultados idénticos con distintas velocidades de animación.
   Special todavía no modifican reglas de combate.
 - Un ataque básico tiene daño base 0 y suma STR. No hay daño mínimo, defensa,
   aciertos aleatorios ni críticos. Alcanza una única casilla ortogonal adyacente;
-  las diagonales quedan fuera. El atacante apunta a la casilla seleccionada.
+  las diagonales quedan fuera. El aventurero apunta desde el panel, con
+  independencia de la selección.
 - `GameState` es el estado autoritativo: mazmorra y encuentro. `GameRules` resuelve
   `MoveActor`, `AttackActor` y `EndActorTurn`, devuelve instantáneas y eventos, y no
   importa Flutter. La salud y las posiciones nunca se duplican en el encuentro.
 - Cada actor tiene movimiento reducido en dos, con mínimo cero, y una acción
   por turno. El aventurero puede repartir el movimiento antes y después de atacar.
   Cambiar de selección o cancelar una ruta no restaura lo ya gastado.
+- Los Bats tienen movimiento base 4 y movimiento de combate 2, mostrado como
+  `4(2)`. Su cadencia de 150 ms por casilla se conserva.
 - Tras la fase del aventurero, cada enemigo participante mueve y ataca mediante
   los mismos comandos. La búsqueda de rutas evita paredes, agua profunda y otros
   actores. Si no puede llegar, termina su turno. Los refuerzos detectados durante
@@ -105,25 +108,39 @@ actúan y resultados idénticos con distintas velocidades de animación.
   Al vencer se revalidan: si el jugador ya abandonó su casilla, no se ejecutan.
 - En exploración, el menú muestra nivel, HP, movimiento, Strength, Dexterity y
   Special. Las criaturas no muestran descripción ni el valor numérico de visión.
-  En combate se ocultan las estadísticas y su espacio se usa para los botones.
+  El panel de acciones oculta las estadísticas y usa su espacio para los botones;
+  el icono de información permite volver a consultarlas durante el combate.
   El tablero y el panel conservan exactamente su tamaño y posición, también al
   apuntar o cambiar de turno. La ronda y el turno ocupan una pestaña en la fila
   existente de `Over` y `Below`. No se muestran avisos de detección o victoria.
-- `Move` selecciona al aventurero; arrastrar prepara una ruta y `Confirm` la
-  ejecuta. `Attack` marca el alcance; tocar un enemigo adyacente y pulsar `Strike`
-  confirma el golpe. `Cancel` no consume acción. `End turn` inicia la fase enemiga.
+- `Move` abre el panel de control; arrastrar dentro prepara una ruta. `Strike`
+  cambia ese mismo panel a apuntado ortogonal. `Confirm` ejecuta la acción;
+  `Cancel` limpia su previsualización. `End turn` inicia la fase enemiga.
 - El tablero mantiene sus posiciones al entrar y salir de combate. Muestra
   participantes con `!`, el enemigo activo con un marco y los impactos con daño
   flotante. La victoria conserva salud, objetos y enemigos supervivientes; la
   derrota bloquea acciones y permite volver al menú principal.
-- La visión de todos los enemigos participantes permanece delimitada en rojo,
-  independientemente de la selección o del fragmento rojo. El contorno tarda seis
-  segundos en iluminarse y otros seis en atenuarse; nunca desaparece por completo.
-  Sigue la posición de su enemigo y se retira cuando deja de participar. El radio
-  de alerta no se dibuja ni se añade a la lista de estadísticas visibles.
+- El alcance de movimiento de los enemigos participantes permanece delimitado en
+  rojo, independientemente de la selección o del fragmento rojo. Usa el movimiento
+  completo de combate, sin descontar pasos gastados ni obstáculos: las paredes y
+  el agua profunda no recortan esta previsualización. Las reglas de movimiento
+  real siguen respetando el terreno. El contorno tarda seis segundos en iluminarse
+  y otros seis en atenuarse; nunca desaparece por completo.
+- `EnemyRanges` une las casillas por tipo antes de dibujar cada perímetro. Los
+  alcances de movimiento y alerta de varios enemigos no generan líneas internas.
+  Se actualizan al moverse o desaparecer sus participantes.
+- La alerta se muestra para enemigos inspeccionados y participantes en combate.
+  Es gris hasta desbloquear `ColorShard.orange`; usa un color naranja independiente
+  del fragmento rojo. La inspección fuera de combate conserva la visión con línea
+  de vista. Estos radios no se añaden a la lista de estadísticas visibles.
 - Los temporizadores secuencian comandos y presentación. Pausar cancela las
   esperas; reanudar conserva el turno. Abandonar la pantalla cancela los timers.
   La animación de impacto no aplica daño ni decide muertes.
+- La cadencia del jugador usa el ajuste de velocidad; la de los enemigos depende
+  de `EnemyType.stepInterval`. Los Bats empiezan con 150 ms por paso (rápidos,
+  por debajo del máximo de 50 ms del jugador). Cada acción vuelve a programar
+  la espera según la especie activa, también al pasar al siguiente enemigo o
+  reanudar la partida. No modifica las casillas disponibles por turno.
 
 `DungeonPage.initialDungeon` permite iniciar un escenario concreto y escoge el
 tutorial de su planta. La partida normal sigue empezando en la planta 0.
@@ -132,23 +149,43 @@ Las pruebas cubren reglas, controlador e interfaz, con partidas completas,
 pausa, prioridad frente a escaleras, derrota, refuerzos, paredes y formatos
 compactos en vertical y horizontal con texto ampliado.
 
-### Propuesta de controles — todavía sin implementar
+### Panel de control implementado
 
-Conservar el tamaño del panel y la pestaña de turno, con una sola zona negra de
-control y dos modos fijos, `Move` y `Strike`. La interacción empieza en esa zona;
-el tablero queda para ver e inspeccionar. Mantener `Cancel`, `Confirm` y `End turn`
-en las mismas posiciones en ambos modos.
+`ActionControls` ocupa el panel existente de 216 px sin mover el tablero, el
+retrato ni la pestaña de turno. Tiene dos modos fijos, `Move` y `Strike`, una
+zona negra de control y la fila `Cancel`, `Confirm`, `End turn`. Solo el texto de
+la caja central es gris oscuro (`DungeonColors.controlPadText`); los botones y
+el icono de información permanecen blancos. Confirmar resalta el borde, sin un
+relleno blanco que oculte su etiqueta.
 
+En el turno del jugador, `Move` y `Strike` pasan a gris al gastar su recurso.
+Preparar una ruta no gasta movimiento. Cuando movimiento y acción se agotan,
+el borde de `End turn` pulsa al terminar la ejecución, sin desplazar el botón.
+La indicación se retira durante la fase enemiga y se reinicia en el nuevo turno;
+respeta la preferencia de reducir animaciones mediante `SelectionFrame`.
+
+- En exploración, seleccionar al aventurero y pulsar `Move` abre el panel.
+  En combate se abre automáticamente. El icono de información vuelve a la
+  inspección también durante el turno del jugador y descarta la previsualización
+  pendiente, sin recargar recursos. La inspección conserva la pestaña de turno y
+  ofrece `Actions` para volver al control, incluso al inspeccionar otro enemigo,
+  terreno o ninguna selección. Cambiar de panel no termina el turno.
 - `Move`: arrastrar dibuja una ruta ortogonal, retroceder la deshace y levantar
-  el dedo conserva la previsualización. Otro arrastre puede continuarla.
-- `Strike`: arrastrar apunta a norte, este, sur u oeste desde el personaje.
-  El tablero marca la casilla y el panel anticipa el daño. Una dirección sin
-  objetivo válido deshabilita la confirmación. Levantar el dedo conserva la mira.
+  el dedo conserva la previsualización. Otro arrastre continúa la ruta. La
+  sensibilidad respeta Settings. Una cancelación del puntero restaura la ruta
+  anterior al gesto, conservando lo preparado en gestos previos.
+- `Strike`: arrastrar apunta a norte, este, sur u oeste desde el aventurero,
+  con una zona muerta central. El tablero marca la casilla y el panel anticipa
+  el daño o indica que no hay objetivo. Levantar el dedo conserva la mira.
+- Las cuatro direcciones del panel también se pueden pulsar y tienen acciones
+  semánticas. Arrastrar el tablero, el retrato o los botones no mueve al jugador.
 - Solo `Confirm` ejecuta una acción. `Cancel` limpia la previsualización sin
-  gastar recursos. Cambiar de modo también descarta la previsualización pendiente.
-- Separar personaje controlado, inspección y objetivo del ataque: apuntar no
-  selecciona al enemigo en lugar del aventurero. Añadir zonas de dirección
-  pulsables dentro del mismo control si el arrastre necesita una alternativa.
+  gastar recursos. Cambiar de modo descarta la previsualización pendiente.
+- `DungeonController.controlMode` y `controlledActorId` separan control,
+  inspección y objetivo. Apuntar no selecciona al enemigo. Inspeccionar una
+  casilla mientras el panel está abierto conserva la ruta y la mira.
+- Durante una ejecución o fase enemiga se bloquea la entrada; un dedo que
+  permanezca apoyado al confirmar no puede preparar otra ruta al desbloquearse.
 
 ### Ajustes para probar el combate
 

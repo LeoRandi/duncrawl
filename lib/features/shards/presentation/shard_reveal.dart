@@ -65,6 +65,7 @@ class _ShardRevealState extends State<ShardReveal>
       ColorShard.green => ShardColors.grass.unlocked,
       ColorShard.blue => ShardColors.water.unlocked,
       ColorShard.lightBlue => ShardColors.shallowWater.unlocked,
+      ColorShard.orange => ShardColors.alert.unlocked,
     };
     return Material(
       type: MaterialType.transparency,

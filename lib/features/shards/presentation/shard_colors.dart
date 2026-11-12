@@ -33,6 +33,11 @@ abstract final class ShardColors {
     unlocked: Color(0xFFFF7979),
     shard: ColorShard.red,
   );
+  static const alert = ShardColor(
+    grey: Color(0xFFB0B0B0),
+    unlocked: Color(0xFFFFA447),
+    shard: ColorShard.orange,
+  );
   static const mainMenu = ShardColor(
     grey: DungeonColors.primary,
     unlocked: Color(0xFFDC3838),

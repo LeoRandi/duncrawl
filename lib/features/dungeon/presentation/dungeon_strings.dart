@@ -1,5 +1,6 @@
 import '../../settings/domain/text_speed.dart';
 import '../../settings/domain/movement_speed.dart';
+import '../domain/dungeon.dart';
 
 abstract final class DungeonStrings {
   static const appTitle = 'Dungeon Crawler 0';
@@ -69,6 +70,7 @@ abstract final class DungeonStrings {
   static const dexterity = 'Dexterity';
   static const special = 'Special';
   static const move = 'Move';
+  static const actions = 'Actions';
   static const attack = 'Attack';
   static const strike = 'Strike';
   static const cancel = 'Cancel';
@@ -76,6 +78,24 @@ abstract final class DungeonStrings {
   static const chooseAttackTarget = 'Choose an adjacent enemy';
   static const defeated = 'Defeated';
   static const cancelRoute = 'Cancel movement preview';
+  static const movementPad = 'Movement control pad';
+  static const strikePad = 'Strike aiming pad';
+  static const dragMovement = 'Drag or tap to plan movement';
+  static const dragAim = 'Drag or tap to aim';
+  static const noAttackTarget = 'No target in this direction';
+  static const inspect = 'Inspect';
+  static const lethal = 'lethal';
+
+  static String directionName(DungeonDirection direction) =>
+      switch (direction) {
+        DungeonDirection.north => 'North',
+        DungeonDirection.east => 'East',
+        DungeonDirection.south => 'South',
+        DungeonDirection.west => 'West',
+      };
+
+  static String aimedDirection(DungeonDirection direction) =>
+      'Aim: ${directionName(direction)}';
 
   static String combatTurn({required int round, required bool isPlayerTurn}) =>
       'Round $round · ${isPlayerTurn ? 'Your turn' : 'Enemy turn'}';
@@ -94,7 +114,8 @@ abstract final class DungeonStrings {
 
   static String damageTaken(int damage) => '$damage damage';
   static const tutorialSelect = 'Select your character to allow movement';
-  static const tutorialDrag = 'Now try dragging around to move the character';
+  static const tutorialDrag =
+      'Tap Move, then drag inside the control pad to plan a route.';
   static const tutorialStairs = 'Use the stairs to exit this floor';
   static const mysteriousVoice = 'Misteryous voice';
   static const tutorialInspectTile =

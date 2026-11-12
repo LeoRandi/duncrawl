@@ -260,7 +260,7 @@ void main() {
         await tester.pump();
         final size = _checkSharedPanel(tester);
         expect(find.text('Movement'), findsOneWidget);
-        expect(find.text('Confirm'), findsOneWidget);
+        expect(find.byKey(const ValueKey('open-move-pad')), findsOneWidget);
         expect(find.text('Over: Grass'), findsOneWidget);
         final tab = tester.getRect(
           find.byKey(const ValueKey('selection-stack-tab')),
@@ -293,7 +293,7 @@ void main() {
         await tester.tap(find.text('Below: Adventurer'));
         await tester.pump();
         expect(controller.isSelected, isTrue);
-        expect(find.text('Confirm'), findsOneWidget);
+        expect(find.byKey(const ValueKey('open-move-pad')), findsOneWidget);
 
         controller.selectTile(const GridPosition(5, 7));
         await tester.pump();
@@ -307,7 +307,7 @@ void main() {
         expect(find.text('Over: Shallow Water'), findsOneWidget);
         expect(find.text('Confirm'), findsNothing);
         expect(find.text('Movement'), findsOneWidget);
-        expect(find.text('5(3)'), findsOneWidget);
+        expect(find.text('4(2)'), findsOneWidget);
         await tester.tap(find.text('Over: Shallow Water'));
         await tester.pump();
         expect(_checkSharedPanel(tester), size);

@@ -10,6 +10,20 @@ class CardinalDrag {
     _vertical = 0;
   }
 
+  static DungeonDirection? directionFor({
+    required double dx,
+    required double dy,
+    double deadZone = 12,
+  }) {
+    if (dx * dx + dy * dy <= deadZone * deadZone) {
+      return null;
+    }
+    if (dx.abs() >= dy.abs()) {
+      return dx > 0 ? DungeonDirection.east : DungeonDirection.west;
+    }
+    return dy > 0 ? DungeonDirection.south : DungeonDirection.north;
+  }
+
   /// Consume el desplazamiento del eje dominante; nunca devuelve una diagonal.
   /// Devuelve null hasta acumular la distancia de un paso.
   ({DungeonDirection direction, int steps})? add({

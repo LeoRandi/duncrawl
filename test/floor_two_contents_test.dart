@@ -184,7 +184,7 @@ void main() {
         expect(find.text('Vision range'), findsNothing);
         expect(find.text('Lv. 1'), findsOneWidget);
         expect(find.text('HP 3/3'), findsOneWidget);
-        expect(find.text('5(3)'), findsOneWidget);
+        expect(find.text('4(2)'), findsOneWidget);
         expect(find.byKey(const ValueKey('selection-note')), findsNothing);
         expect(find.text('Confirm'), findsNothing);
         expect(controller.isSelected, isFalse);

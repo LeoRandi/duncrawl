@@ -152,7 +152,7 @@ Future<void> _walk(WidgetTester tester, Offset direction, int steps) async {
           .value
           .dragDistanceMultiplier;
   await tester.drag(
-    find.byType(DungeonBoard),
+    await movementPad(tester),
     direction * (distance * (steps + 0.1)),
   );
   await tester.pump();

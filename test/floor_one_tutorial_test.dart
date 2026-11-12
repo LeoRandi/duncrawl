@@ -223,7 +223,7 @@ Future<void> _walkNorth(WidgetTester tester, int steps) async {
       .settings
       .value;
   await tester.drag(
-    board,
+    await movementPad(tester),
     Offset(0, -tileSize * settings.dragDistanceMultiplier * (steps + 0.1)),
   );
   await tester.pump();

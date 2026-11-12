@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/dungeon_theme.dart';
@@ -21,7 +20,6 @@ import '../floors/floor_0.dart';
 import '../floors/dungeon_floors.dart';
 import '../../settings/domain/game_settings.dart';
 import '../../settings/presentation/game_settings_dialog.dart';
-import 'cardinal_drag.dart';
 import 'dungeon_board.dart';
 import 'dungeon_controller.dart';
 import 'dungeon_strings.dart';
@@ -58,12 +56,12 @@ class DungeonPage extends StatefulWidget {
 }
 
 class _DungeonPageState extends State<DungeonPage> {
-  final _drag = CardinalDrag();
   late final _initialFloorNumber = widget.initialDungeon?.floor.number ?? 0;
   late final _controller = DungeonController(
     widget.initialDungeon ?? Dungeon.start(floor0.create()),
     requiresConfirmation: _requiresInteractionConfirmation,
-    movementInterval: () => widget.settings.value.movementSpeed.stepInterval,
+    playerMovementInterval: () =>
+        widget.settings.value.movementSpeed.stepInterval,
     floorZeroBats: widget.settings.value.floorZeroBats,
   );
   late final _tutorial = TutorialController(
@@ -536,177 +534,128 @@ class _DungeonPageState extends State<DungeonPage> {
                                       : verticalBoardSize;
                                   final tileSize =
                                       boardSize / DungeonFloor.size;
-                                  return Listener(
-                                    onPointerCancel: (_) {
-                                      _drag.reset();
-                                      _controller.cancelDrag();
-                                    },
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      dragStartBehavior: DragStartBehavior.down,
-                                      onPanStart: (_) {
-                                        if (!_tutorial.allows(
-                                          DungeonTutorialControl.movement,
-                                        )) {
-                                          return;
-                                        }
-                                        _drag.reset();
-                                        _controller.beginDrag();
-                                      },
-                                      onPanEnd: (_) {
-                                        _drag.reset();
-                                        _controller.endDrag();
-                                      },
-                                      onPanCancel: () {
-                                        _drag.reset();
-                                        _controller.cancelDrag();
-                                      },
-                                      onPanUpdate: (details) {
-                                        if (!_tutorial.allows(
-                                          DungeonTutorialControl.movement,
-                                        )) {
-                                          return;
-                                        }
-                                        final movement = _drag.add(
-                                          dx: details.delta.dx,
-                                          dy: details.delta.dy,
-                                          stepDistance:
-                                              math.max(tileSize, 16) *
-                                              widget
-                                                  .settings
-                                                  .value
-                                                  .dragDistanceMultiplier,
-                                        );
-                                        if (movement == null) {
-                                          return;
-                                        }
-
-                                        _controller.preview(
-                                          movement.direction,
-                                          steps: movement.steps,
-                                        );
-                                      },
-                                      child: Flex(
-                                        direction: sideMenu
-                                            ? Axis.horizontal
-                                            : Axis.vertical,
-                                        children: [
-                                          SizedBox.square(
-                                            key: _gridAnchorKey,
-                                            dimension: boardSize,
-                                            child: DungeonBoard(
-                                              key: const ValueKey(
-                                                'dungeon-grid',
-                                              ),
-                                              floor: _controller.dungeon.floor,
-                                              player:
-                                                  _controller.dungeon.player,
-                                              movementPath:
-                                                  _controller.remainingPath,
-                                              isSelected:
-                                                  _controller.isSelected,
-                                              selectedTile:
-                                                  _controller.selectedPosition,
-                                              selectedInspection: _controller
-                                                  .selectedInspection,
-                                              attackRange:
-                                                  _controller.attackRange,
-                                              lastAttack:
-                                                  _controller.lastAttack,
-                                              attackSequence:
-                                                  _controller.attackSequence,
-                                              engagedEnemyIds:
-                                                  _controller
-                                                      .encounter
-                                                      ?.enemyIds
-                                                      .toSet() ??
-                                                  const {},
-                                              activeActorId: _controller
-                                                  .encounter
-                                                  ?.activeActorId,
-                                              onSelectTile: _selectTile,
-                                              onSelectPlayer:
-                                                  _tutorial.allows(
-                                                    DungeonTutorialControl
-                                                        .selection,
-                                                  )
-                                                  ? _selectCharacter
-                                                  : null,
-                                              playerAnchorKey: _playerAnchorKey,
-                                              stairsAnchorKey: _stairsAnchorKey,
-                                              enemyAnchorKeys: {
-                                                if (_tutorialBat
-                                                    case final bat?)
-                                                  bat.id: _batAnchorKey,
-                                              },
+                                  return Flex(
+                                    direction: sideMenu
+                                        ? Axis.horizontal
+                                        : Axis.vertical,
+                                    children: [
+                                      SizedBox.square(
+                                        key: _gridAnchorKey,
+                                        dimension: boardSize,
+                                        child: DungeonBoard(
+                                          key: const ValueKey('dungeon-grid'),
+                                          floor: _controller.dungeon.floor,
+                                          player: _controller.dungeon.player,
+                                          movementPath:
+                                              _controller.remainingPath,
+                                          isSelected: _controller.isSelected,
+                                          selectedTile:
+                                              _controller.selectedPosition,
+                                          selectedInspection:
+                                              _controller.selectedInspection,
+                                          attackRange: _controller.attackRange,
+                                          aimedTile: _controller.aimedPosition,
+                                          aimDirection:
+                                              _controller.aimDirection,
+                                          validAim: _controller.canStrike,
+                                          lastAttack: _controller.lastAttack,
+                                          attackSequence:
+                                              _controller.attackSequence,
+                                          engagedEnemyIds:
+                                              _controller.encounter?.enemyIds
+                                                  .toSet() ??
+                                              const {},
+                                          activeActorId: _controller
+                                              .encounter
+                                              ?.activeActorId,
+                                          onSelectTile: _selectTile,
+                                          onSelectPlayer:
+                                              _tutorial.allows(
+                                                DungeonTutorialControl
+                                                    .selection,
+                                              )
+                                              ? _selectCharacter
+                                              : null,
+                                          playerAnchorKey: _playerAnchorKey,
+                                          stairsAnchorKey: _stairsAnchorKey,
+                                          enemyAnchorKeys: {
+                                            if (_tutorialBat case final bat?)
+                                              bat.id: _batAnchorKey,
+                                          },
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: sideMenu
+                                            ? DungeonTheme.spacing * 2
+                                            : 0,
+                                      ),
+                                      if (!sideMenu)
+                                        SizedBox(
+                                          height: SelectionStackTab.extent,
+                                          child: SelectionStackTab(
+                                            controller: _controller,
+                                            enabled: _tutorial.allows(
+                                              DungeonTutorialControl.inspection,
                                             ),
                                           ),
-                                          SizedBox(
-                                            width: sideMenu
-                                                ? DungeonTheme.spacing * 2
-                                                : 0,
-                                          ),
-                                          if (!sideMenu)
-                                            SizedBox(
-                                              height: SelectionStackTab.extent,
-                                              child: SelectionStackTab(
-                                                controller: _controller,
-                                                enabled: _tutorial.allows(
-                                                  DungeonTutorialControl
-                                                      .inspection,
+                                        ),
+                                      Expanded(
+                                        child: Column(
+                                          children: [
+                                            if (sideMenu)
+                                              SizedBox(
+                                                height:
+                                                    SelectionStackTab.extent,
+                                                child: SelectionStackTab(
+                                                  controller: _controller,
+                                                  enabled: _tutorial.allows(
+                                                    DungeonTutorialControl
+                                                        .inspection,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          Expanded(
-                                            child: Column(
-                                              children: [
-                                                if (sideMenu)
-                                                  SizedBox(
-                                                    height: SelectionStackTab
-                                                        .extent,
-                                                    child: SelectionStackTab(
-                                                      controller: _controller,
-                                                      enabled: _tutorial.allows(
-                                                        DungeonTutorialControl
-                                                            .inspection,
+                                            Expanded(
+                                              child: MovementMenu(
+                                                key: _movementMenuKey,
+                                                controller: _controller,
+                                                movementStepDistance:
+                                                    math.max(tileSize, 16) *
+                                                    widget
+                                                        .settings
+                                                        .value
+                                                        .dragDistanceMultiplier,
+                                                allowMovement: _tutorial.allows(
+                                                  DungeonTutorialControl
+                                                      .movement,
+                                                ),
+                                                onReturnToMainMenu: () {
+                                                  unawaited(
+                                                    _returnToMainMenu(
+                                                      IrisTransition.centerOf(
+                                                        _playerAnchorKey,
                                                       ),
                                                     ),
-                                                  ),
-                                                Expanded(
-                                                  child: MovementMenu(
-                                                    key: _movementMenuKey,
-                                                    controller: _controller,
-                                                    onReturnToMainMenu: () {
-                                                      unawaited(
-                                                        _returnToMainMenu(
-                                                          IrisTransition.centerOf(
-                                                            _playerAnchorKey,
-                                                          ),
-                                                        ),
-                                                      );
-                                                    },
-                                                    enabled: _tutorial.allows(
+                                                  );
+                                                },
+                                                enabled: _tutorial.allows(
+                                                  DungeonTutorialControl
+                                                      .confirm,
+                                                ),
+                                                allowStatHelp: _tutorial.allows(
+                                                  DungeonTutorialControl
+                                                      .statHelp,
+                                                ),
+                                                pulseConfirm: _tutorial
+                                                    .emphasizes(
                                                       DungeonTutorialControl
                                                           .confirm,
                                                     ),
-                                                    allowStatHelp: _tutorial
-                                                        .allows(
-                                                          DungeonTutorialControl
-                                                              .statHelp,
-                                                        ),
-                                                    pulseConfirm: _tutorial
-                                                        .emphasizes(
-                                                          DungeonTutorialControl
-                                                              .confirm,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ],
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   );
                                 },
                               ),

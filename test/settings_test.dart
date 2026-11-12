@@ -61,7 +61,7 @@ void main() {
       expect(settings.movementSpeed, MovementSpeed.ultraFast);
       final distance =
           tester.getSize(board).width / 15 * settings.dragDistanceMultiplier;
-      await tester.drag(board, Offset(distance * 1.2, 0));
+      await tester.drag(await movementPad(tester), Offset(distance * 1.2, 0));
       await tester.pump();
       await tester.tap(find.text('Confirm'));
       await tester.pump();

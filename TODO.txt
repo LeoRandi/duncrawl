@@ -14,11 +14,11 @@
 --Consuminles[0/10]
 
 -Combate
---Visión de los enemigos, y comenzar combate una vez en visión
---Sistema de combate por turnos
+--[Visión de los enemigos, y comenzar combate una vez en visión]
+--[Sistema de combate por turnos]
 --Ataques y habilidades de cada personaje
----Ataque básico y 1 habilidad fuerte para el Adventurer
----Ataque básico y habilidad de cura para Bats
+---[Ataque básico y ]1 habilidad fuerte para el Adventurer
+---[Ataque básico y ]habilidad de cura para Bats
 
 -Bestiario
 

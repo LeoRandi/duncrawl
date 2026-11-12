@@ -11,6 +11,8 @@ import 'package:duncrawl/features/dungeon/presentation/dungeon_page.dart';
 import 'package:duncrawl/features/dungeon/presentation/movement_menu.dart';
 import 'package:duncrawl/features/settings/domain/game_settings.dart';
 
+import 'helpers/dialogue_helpers.dart';
+
 void main() {
   testWidgets(
     'Tile taps inspect objects, clear on empty ground and restore character controls',
@@ -41,11 +43,14 @@ void main() {
       await _tapTile(tester, const GridPosition(7, 7));
       expect(_board(tester).isSelected, isTrue);
       final distance = tester.getSize(find.byType(DungeonBoard)).width / 15 * 2;
-      await tester.drag(find.byType(DungeonBoard), Offset(distance * 1.2, 0));
+      await tester.drag(await movementPad(tester), Offset(distance * 1.2, 0));
       await tester.pump();
       expect(_board(tester).movementPath, isNotEmpty);
       await _tapTile(tester, const GridPosition(0, 7));
       expect(_board(tester).isSelected, isFalse);
+      expect(_board(tester).movementPath, isNotEmpty);
+      await tester.tap(find.byKey(const ValueKey('inspect-action')));
+      await tester.pump();
       expect(_board(tester).movementPath, isEmpty);
       expect(
         find.descendant(of: panel, matching: find.text('Wall')),
@@ -59,14 +64,14 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('player-portrait')));
       await tester.pump();
       expect(_board(tester).isSelected, isTrue);
-      expect(find.text('Confirm'), findsOneWidget);
+      expect(find.byKey(const ValueKey('open-move-pad')), findsOneWidget);
       await _tapTile(tester, const GridPosition(6, 6));
       expect(_board(tester).isSelected, isFalse);
       expect(find.text('Select something to continue'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('player-portrait')));
       await tester.pump();
-      await tester.drag(find.byType(DungeonBoard), Offset(distance * 2.2, 0));
+      await tester.drag(await movementPad(tester), Offset(distance * 2.2, 0));
       await tester.pump();
       await tester.tap(find.text('Confirm'));
       await tester.pump();

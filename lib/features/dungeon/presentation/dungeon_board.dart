@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/dungeon_theme.dart';
+import '../domain/dungeon.dart';
 import '../domain/dungeon_floor.dart';
 import '../domain/dungeon_enemy.dart';
 import '../domain/grid_position.dart';
 import '../domain/tile_inspection.dart';
-import '../domain/dungeon_visibility.dart';
 import '../domain/game_event.dart';
 import 'combat_impact.dart';
 import 'dungeon_strings.dart';
+import 'enemy_ranges.dart';
 import 'movement_preview.dart';
 import 'selection_frame.dart';
 import 'tile_glyph.dart';
@@ -44,6 +45,9 @@ class DungeonBoard extends StatelessWidget {
   final String? activeActorId;
   final AttackResolved? lastAttack;
   final int attackSequence;
+  final GridPosition? aimedTile;
+  final DungeonDirection? aimDirection;
+  final bool validAim;
 
   const DungeonBoard({
     super.key,
@@ -63,6 +67,9 @@ class DungeonBoard extends StatelessWidget {
     this.activeActorId,
     this.lastAttack,
     this.attackSequence = 0,
+    this.aimedTile,
+    this.aimDirection,
+    this.validAim = false,
   });
 
   @override
@@ -292,32 +299,61 @@ class DungeonBoard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    for (final enemy in floor.enemies)
-                      if (!enemy.isDefeated &&
-                          engagedEnemyIds.contains(enemy.id))
-                        TileAreaOutline(
-                          key: ValueKey(('combat-vision', enemy.id)),
-                          tiles: DungeonVisibility.visibleArea(floor, enemy),
-                          color: ShardColors.vision.unlocked,
-                          pulseDuration: TileAreaOutline.combatPulseDuration,
-                        ),
-                    switch (selectedInspection?.enemy) {
-                      final enemy? when !engagedEnemyIds.contains(enemy.id) =>
-                        TileAreaOutline(
-                          key: const ValueKey('enemy-vision'),
-                          tiles: DungeonVisibility.visibleArea(floor, enemy),
-                          color: ShardColors.vision.of(context),
-                        ),
-                      _ => const SizedBox.expand(),
-                    },
+                    EnemyRanges(
+                      floor: floor,
+                      engagedEnemyIds: engagedEnemyIds,
+                      inspectedEnemy: selectedInspection?.enemy,
+                    ),
                     if (attackRange.isNotEmpty)
                       TileAreaOutline(
                         key: const ValueKey('attack-range'),
                         tiles: attackRange,
                         color: DungeonColors.primary,
                       ),
+                    if ((aimedTile, aimDirection) case (
+                      final tile?,
+                      final direction?,
+                    ) when floor.contains(tile))
+                      Positioned(
+                        left: tile.column * tileSize,
+                        top: tile.row * tileSize,
+                        width: tileSize,
+                        height: tileSize,
+                        child: IgnorePointer(
+                          child: Semantics(
+                            label: DungeonStrings.aimedDirection(direction),
+                            child: DecoratedBox(
+                              key: const ValueKey('aim-reticle'),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: validAim
+                                      ? DungeonColors.primary
+                                      : DungeonColors.textDisabled,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Icon(
+                                switch (direction) {
+                                  DungeonDirection.north => Icons.arrow_upward,
+                                  DungeonDirection.east => Icons.arrow_forward,
+                                  DungeonDirection.south =>
+                                    Icons.arrow_downward,
+                                  DungeonDirection.west => Icons.arrow_back,
+                                },
+                                size: tileSize * 0.75,
+                                color: validAim
+                                    ? DungeonColors.primary
+                                    : DungeonColors.textDisabled,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     if (lastAttack case final attack?)
                       Positioned(
+                        // La clave identifica el hijo directo del Stack para que
+                        // añadir la mira no vuelva a crear un impacto anterior.
+                        key: ValueKey(('combat-impact', attackSequence)),
                         left:
                             attack.targetPosition.column * tileSize -
                             tileSize / 2,
@@ -325,10 +361,7 @@ class DungeonBoard extends StatelessWidget {
                             attack.targetPosition.row * tileSize - tileSize / 2,
                         width: tileSize * 2,
                         height: tileSize * 1.5,
-                        child: CombatImpact(
-                          key: ValueKey(('combat-impact', attackSequence)),
-                          damage: attack.damage,
-                        ),
+                        child: CombatImpact(damage: attack.damage),
                       ),
                   ],
                 ),

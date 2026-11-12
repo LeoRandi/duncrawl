@@ -22,96 +22,81 @@ void main() {
       await _startGame(tester);
       final distance = _stepDistance(tester);
       final gesture = await tester.startGesture(
-        tester.getCenter(find.byType(DungeonBoard)),
+        tester.getCenter(await movementPad(tester)),
         pointer: 1,
       );
       await gesture.moveBy(Offset(distance * 1.2, 0));
       await tester.pump();
-      expect(find.text('4/5'), findsOneWidget);
+      expect(find.text('Movement: 4/5'), findsOneWidget);
       expect(_confirmEnabled(tester), isTrue);
 
       await gesture.moveBy(Offset(-distance * 1.4, 0));
       await tester.pump();
-      expect(find.text('5/5'), findsOneWidget);
+      expect(find.text('Movement: 5/5'), findsOneWidget);
       expect(_confirmEnabled(tester), isFalse);
 
       await gesture.moveBy(Offset(distance * 1.4, 0));
       await tester.pump();
-      expect(find.text('4/5'), findsOneWidget);
+      expect(find.text('Movement: 4/5'), findsOneWidget);
       expect(_confirmEnabled(tester), isTrue);
       await tester.tap(find.text('Confirm'), pointer: 2);
       await tester.pump();
       expect(_confirmEnabled(tester), isFalse);
       await tester.pump(const Duration(milliseconds: 300));
       expect(_board(tester).player, const GridPosition(8, 7));
-      await gesture.up();
-      await tester.pump();
-      expect(_board(tester).movementPath, isEmpty);
-    },
-  );
-
-  testWidgets(
-    'The menu changes from a prompt to character details and live movement controls',
-    (tester) async {
-      await _startGame(tester, select: false);
-      final prompt = find.text('Select something to continue');
-      expect(prompt, findsOneWidget);
-      expect(find.text('Lv. 1'), findsNothing);
-      expect(find.text('HP 10/10'), findsNothing);
-      expect(
-        tester.getCenter(prompt),
-        tester.getCenter(find.byKey(const ValueKey('option-menu'))),
-      );
-      expect(tester.widget<Text>(prompt).style?.color, const Color(0xFF808080));
-      await tester.tap(find.byKey(const ValueKey('player-portrait')));
-      await tester.pump();
-      expect(prompt, findsNothing);
-      expect(find.text('Movement'), findsOneWidget);
-      expect(find.text('5/5'), findsOneWidget);
-      expect(find.text('Confirm'), findsOneWidget);
-      expect(_confirmEnabled(tester), isFalse);
-      final button = tester.widget<FilledButton>(
-        find.byKey(const ValueKey('confirm-movement')),
-      );
-      expect(
-        button.style?.foregroundColor?.resolve({WidgetState.disabled}),
-        const Color(0xFF808080),
-      );
-      final infoRect = tester.getRect(
-        find.byKey(const ValueKey('selection-info')),
-      );
-      final unselectRect = tester.getRect(find.text('Unselect'));
-      final movementRect = tester.getRect(find.text('Movement'));
-      final confirmRect = tester.getRect(find.text('Confirm'));
-      expect(infoRect.left, lessThan(unselectRect.left));
-      expect(infoRect.bottom, lessThan(movementRect.top));
-      expect(unselectRect.bottom, lessThan(confirmRect.top));
-      expect(movementRect.left, lessThan(confirmRect.left));
-      await tester.tap(find.text('Confirm'));
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(_board(tester).player, const GridPosition(7, 7));
-
-      final distance = _stepDistance(tester) + 0.01;
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byType(DungeonBoard)),
-      );
       await gesture.moveBy(Offset(distance * 2, 0));
       await tester.pump();
-      expect(find.text('3/5'), findsOneWidget);
-      expect(_confirmEnabled(tester), isTrue);
-      await gesture.moveBy(Offset(-distance * 1.1, 0));
-      await tester.pump();
-      expect(find.text('4/5'), findsOneWidget);
       await gesture.up();
       await tester.pump();
-      expect(_confirmEnabled(tester), isTrue);
-      await tester.tap(find.text('Movement'));
-      await tester.pump();
-      expect(find.text('5/5'), findsOneWidget);
-      expect(_confirmEnabled(tester), isFalse);
       expect(_board(tester).movementPath, isEmpty);
     },
   );
+
+  testWidgets('Only the central pad has grey text; controls remain white', (
+    tester,
+  ) async {
+    await _startGame(tester, select: false);
+    expect(find.text('Select something to continue'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('player-portrait')));
+    await tester.pump();
+    expect(find.text('5/5'), findsOneWidget);
+    expect(find.text('Confirm'), findsNothing);
+    final menuRect = tester.getRect(find.byKey(const ValueKey('option-menu')));
+    final boardRect = tester.getRect(find.byType(DungeonBoard));
+    await movementPad(tester);
+    expect(tester.getRect(find.byKey(const ValueKey('option-menu'))), menuRect);
+    expect(tester.getRect(find.byType(DungeonBoard)), boardRect);
+    expect(find.byKey(const ValueKey('selection-info')), findsNothing);
+    expect(_confirmEnabled(tester), isFalse);
+    for (final key in ['cancel-action', 'confirm-action', 'end-turn']) {
+      expect(
+        tester.getRect(find.byKey(ValueKey(key))).height,
+        greaterThanOrEqualTo(48),
+      );
+    }
+    for (final text in tester.widgetList<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('option-menu')),
+        matching: find.byType(Text),
+      ),
+    )) {
+      final inPad =
+          text.key == const ValueKey('action-pad-hint') ||
+          text.key == const ValueKey('action-pad-summary');
+      expect(text.style?.color, inPad ? const Color(0xFF606060) : Colors.white);
+    }
+    await tester.drag(
+      await movementPad(tester),
+      Offset(_stepDistance(tester) * 1.2, 0),
+    );
+    await tester.pump();
+    expect(_confirmEnabled(tester), isTrue);
+    expect(find.text('Movement: 4/5'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('cancel-action')));
+    await tester.pump();
+    expect(_board(tester).movementPath, isEmpty);
+    expect(_confirmEnabled(tester), isFalse);
+  });
 
   testWidgets(
     'Unselected mode ignores drags and taps outside selection targets',
@@ -171,68 +156,53 @@ void main() {
     expect(_board(tester).isSelected, isTrue);
   });
 
-  testWidgets(
-    'Unselect clears previews but the whole menu is locked during a confirmed walk',
-    (tester) async {
-      await _startGame(tester);
-      await tester.drag(
-        find.byType(DungeonBoard),
-        Offset(_stepDistance(tester) * 2.2, 0),
-      );
-      await tester.pump();
-      expect(find.text('Confirm'), findsOneWidget);
-      await tester.tap(find.text('Unselect'));
-      await tester.pump();
-      expect(_board(tester).isSelected, isFalse);
-      expect(_board(tester).movementPath, isEmpty);
-      expect(find.text('Confirm'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('player')));
-      await tester.pump();
-      await tester.drag(
-        find.byType(DungeonBoard),
-        Offset(_stepDistance(tester) * 2.2, 0),
-      );
-      await tester.pump();
-      await tester.tap(find.text('Confirm'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(_board(tester).player, const GridPosition(8, 7));
-      expect(
-        tester
-            .widget<OutlinedButton>(
-              find.widgetWithText(OutlinedButton, 'Unselect'),
-            )
-            .onPressed,
-        isNull,
-      );
-      expect(_confirmEnabled(tester), isFalse);
-      await tester.tapAt(tester.getCenter(find.text('Unselect')));
-      await tester.pump();
-      expect(_board(tester).player, const GridPosition(8, 7));
-      expect(_board(tester).isSelected, isTrue);
-      await tester.dragFrom(
-        tester.getCenter(find.text('Movement')),
-        const Offset(-100, 0),
-      );
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(_board(tester).player, const GridPosition(9, 7));
-      expect(
-        tester
-            .widget<OutlinedButton>(
-              find.widgetWithText(OutlinedButton, 'Unselect'),
-            )
-            .onPressed,
-        isNotNull,
-      );
-      await tester.tap(find.text('Unselect'));
-      await tester.pump();
-      expect(_board(tester).isSelected, isFalse);
-      expect(_board(tester).movementPath, isEmpty);
-      await tester.drag(find.byType(DungeonBoard), const Offset(150, 0));
-      await tester.pump();
-      expect(_board(tester).movementPath, isEmpty);
-    },
-  );
+  testWidgets('Info clears the preview and is locked during a confirmed walk', (
+    tester,
+  ) async {
+    await _startGame(tester);
+    await tester.drag(
+      await movementPad(tester),
+      Offset(_stepDistance(tester) * 2.2, 0),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('inspect-action')));
+    await tester.pump();
+    expect(_board(tester).movementPath, isEmpty);
+    expect(find.text('Unselect'), findsOneWidget);
+    await tester.drag(
+      await movementPad(tester),
+      Offset(_stepDistance(tester) * 2.2, 0),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Confirm'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(_board(tester).player, const GridPosition(8, 7));
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('inspect-action')))
+          .onPressed,
+      isNull,
+    );
+    expect(_confirmEnabled(tester), isFalse);
+    await tester.drag(find.byType(DungeonBoard), const Offset(-100, 0));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(_board(tester).player, const GridPosition(9, 7));
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const ValueKey('inspect-action')))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(const ValueKey('inspect-action')));
+    await tester.pump();
+    await tester.tap(find.text('Unselect'));
+    await tester.pump();
+    await tester.drag(find.byType(DungeonBoard), const Offset(150, 0));
+    await tester.pump();
+    expect(_board(tester).isSelected, isFalse);
+    expect(_board(tester).movementPath, isEmpty);
+  });
 
   testWidgets('The floating menu blocks play and opens bestiary and settings', (
     tester,
@@ -268,7 +238,7 @@ void main() {
   ) async {
     await _startGame(tester);
     await tester.drag(
-      find.byType(DungeonBoard),
+      await movementPad(tester),
       Offset(_stepDistance(tester) * 3.2, 0),
     );
     await tester.pump();
@@ -288,6 +258,8 @@ void main() {
     expect(_board(tester).player, const GridPosition(9, 7));
     expect(_board(tester).isSelected, isTrue);
     await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const ValueKey('inspect-action')));
+    await tester.pump();
     await tester.tap(find.text('Unselect'));
     await tester.pump();
   });
@@ -488,7 +460,7 @@ void main() {
       final tileSize = boardRect.width / DungeonFloor.size;
 
       await tester.dragFrom(
-        boardRect.center,
+        tester.getCenter(await movementPad(tester)),
         Offset(tileSize * 5, tileSize * 1.2),
       );
       await tester.pump();
@@ -498,7 +470,10 @@ void main() {
       expect(board.movementPath.every((position) => position.row == 7), isTrue);
       expect(find.text('Confirm'), findsOneWidget);
 
-      await tester.dragFrom(boardRect.center, const Offset(-1000, 0));
+      await tester.dragFrom(
+        tester.getCenter(await movementPad(tester)),
+        const Offset(-1000, 0),
+      );
       await tester.pump();
       board = _board(tester);
       expect(board.player, const GridPosition(7, 7));
@@ -507,7 +482,7 @@ void main() {
     },
   );
 
-  testWidgets('The movement footer also accepts drag movement', (tester) async {
+  testWidgets('Dragging the footer outside the pad is ignored', (tester) async {
     await _startGame(tester);
     final menu = find.byKey(const ValueKey('option-menu'));
 
@@ -520,7 +495,7 @@ void main() {
     final board = tester.widget<DungeonBoard>(find.byType(DungeonBoard));
     expect(board.player.column, 7);
     expect(board.player.row, 7);
-    expect(board.movementPath.last.row, lessThan(7));
+    expect(board.movementPath, isEmpty);
   });
 
   testWidgets('Default movement needs two tile widths of dragging per step', (
@@ -530,14 +505,20 @@ void main() {
     final boardRect = tester.getRect(find.byType(DungeonBoard));
     final tileSize = boardRect.width / DungeonFloor.size;
 
-    await tester.dragFrom(boardRect.center, Offset(tileSize * 1.5, 0));
+    await tester.dragFrom(
+      tester.getCenter(await movementPad(tester)),
+      Offset(tileSize * 1.5, 0),
+    );
     await tester.pump();
     expect(
       tester.widget<DungeonBoard>(find.byType(DungeonBoard)).player,
       const GridPosition(7, 7),
     );
 
-    await tester.dragFrom(boardRect.center, Offset(tileSize * 3.5, 0));
+    await tester.dragFrom(
+      tester.getCenter(await movementPad(tester)),
+      Offset(tileSize * 3.5, 0),
+    );
     await tester.pump();
     expect(
       tester.widget<DungeonBoard>(find.byType(DungeonBoard)).player,
@@ -552,7 +533,7 @@ void main() {
       await _startGame(tester);
       final distance = _stepDistance(tester) + 0.01;
       final gesture = await tester.startGesture(
-        tester.getCenter(find.byType(DungeonBoard)),
+        tester.getCenter(await movementPad(tester)),
       );
       await gesture.moveBy(Offset(0, -distance * 2));
       await tester.pump();
@@ -580,7 +561,15 @@ void main() {
       await gesture.up();
       await tester.pump();
       expect(find.text('Confirm'), findsOneWidget);
-      expect(find.byTooltip('Destination: column 11, row 6'), findsOneWidget);
+      expect(
+        tester
+            .widget<Semantics>(
+              find.byKey(const ValueKey('movement-destination')),
+            )
+            .properties
+            .label,
+        'Destination: column 11, row 6',
+      );
       expect(_confirmEnabled(tester), isTrue);
       expect(
         find.descendant(
@@ -602,7 +591,11 @@ void main() {
       expect(_board(tester).player, path.first);
       expect(_board(tester).movementPath, path.skip(1).toList());
       // Los gestos durante la ejecución no alteran la ruta confirmada.
-      await tester.drag(find.byType(DungeonBoard), const Offset(-100, 0));
+      await tester.drag(
+        await movementPad(tester),
+        const Offset(-100, 0),
+        warnIfMissed: false,
+      );
       await tester.pump();
       for (final (index, position) in path.indexed.skip(1)) {
         await tester.pump(const Duration(milliseconds: 300));
@@ -621,45 +614,49 @@ void main() {
       expect(_confirmEnabled(tester), isFalse);
       expect(find.text('Moving…'), findsNothing);
 
-      await tester.drag(find.byType(DungeonBoard), Offset(distance, 0));
+      await tester.drag(await movementPad(tester), Offset(distance, 0));
       await tester.pump();
       expect(_board(tester).movementPath, [const GridPosition(11, 5)]);
       expect(_board(tester).player, path.last);
     },
   );
 
-  testWidgets('Any tap outside Confirm cancels the preview without moving', (
-    tester,
-  ) async {
-    await _startGame(tester);
-    final targets = [
-      tester.getCenter(find.byType(DungeonBoard)),
-      tester.getTopLeft(find.byKey(const ValueKey('option-menu'))) +
-          const Offset(5, 5),
-      tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
-      const Offset(5, 250),
-    ];
-    for (final target in targets) {
-      await tester.drag(
-        find.byType(DungeonBoard),
-        Offset(_stepDistance(tester) * 1.2, 0),
-      );
-      await tester.pump();
-      expect(find.text('Confirm'), findsOneWidget);
-      await tester.tapAt(target);
-      await tester.pump();
-      expect(_confirmEnabled(tester), isFalse);
-      expect(_board(tester).movementPath, isEmpty);
-      expect(_board(tester).player, const GridPosition(7, 7));
-    }
-  });
+  testWidgets(
+    'Inspecting and tapping outside the pad preserves the pending route',
+    (tester) async {
+      await _startGame(tester);
+      await movementPad(tester);
+      final targets = [
+        tester.getCenter(find.byType(DungeonBoard)),
+        tester.getTopLeft(find.byKey(const ValueKey('option-menu'))) +
+            const Offset(5, 5),
+        tester.getCenter(find.byKey(const ValueKey('player-portrait'))),
+        const Offset(5, 250),
+      ];
+      for (final target in targets) {
+        await tester.tap(find.byKey(const ValueKey('cancel-action')));
+        await tester.pump();
+        await tester.drag(
+          await movementPad(tester),
+          Offset(_stepDistance(tester) * 1.2, 0),
+        );
+        await tester.pump();
+        expect(find.text('Confirm'), findsOneWidget);
+        await tester.tapAt(target);
+        await tester.pump();
+        expect(_confirmEnabled(tester), isTrue);
+        expect(_board(tester).movementPath, [const GridPosition(8, 7)]);
+        expect(_board(tester).player, const GridPosition(7, 7));
+      }
+    },
+  );
 
   testWidgets('Cancelling a pointer gesture discards its preview', (
     tester,
   ) async {
     await _startGame(tester);
     final gesture = await tester.startGesture(
-      tester.getCenter(find.byType(DungeonBoard)),
+      tester.getCenter(await movementPad(tester)),
     );
     await gesture.moveBy(Offset(_stepDistance(tester) * 1.2, 0));
     await tester.pump();
@@ -675,7 +672,7 @@ void main() {
   ) async {
     await _startGame(tester);
     await tester.drag(
-      find.byType(DungeonBoard),
+      await movementPad(tester),
       Offset(_stepDistance(tester) * 3.2, 0),
     );
     await tester.pump();
@@ -711,7 +708,7 @@ void main() {
         ).scale(10),
         15,
       );
-      await tester.drag(find.byType(DungeonBoard), const Offset(70, 0));
+      await tester.drag(await movementPad(tester), const Offset(70, 0));
       await tester.pump();
       expect(find.text('Confirm'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -724,7 +721,12 @@ DungeonBoard _board(WidgetTester tester) =>
 
 bool _confirmEnabled(WidgetTester tester) =>
     tester
-        .widget<FilledButton>(find.byKey(const ValueKey('confirm-movement')))
+        .widget<FilledButton>(
+          find.descendant(
+            of: find.byKey(const ValueKey('confirm-action')),
+            matching: find.byType(FilledButton),
+          ),
+        )
         .onPressed !=
     null;
 

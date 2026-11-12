@@ -98,11 +98,15 @@ void main() {
       expect(find.byType(TutorialSpotlight), findsNothing);
       await tester.pump(const Duration(milliseconds: 1));
       expect(
-        find.text('Now try dragging around to move the character'),
+        find.text(
+          'Tap Move, then drag inside the control pad to plan a route.',
+        ),
         findsOneWidget,
       );
       expect(
-        _shade(tester).contains(_gridRect(tester).topLeft + const Offset(1, 1)),
+        _shade(
+          tester,
+        ).contains(tester.getCenter(find.byKey(const ValueKey('option-menu')))),
         isFalse,
       );
       expect(
@@ -119,7 +123,9 @@ void main() {
       expect(_board(tester).movementPath, isEmpty);
 
       final stepDistance = _stepDistance(tester);
-      final gesture = await tester.startGesture(_gridRect(tester).center);
+      final gesture = await tester.startGesture(
+        tester.getCenter(await movementPad(tester)),
+      );
       await gesture.moveBy(Offset(stepDistance * 2.01, 0));
       await tester.pump();
       expect(find.byType(TutorialSpotlight), findsNothing);
@@ -168,7 +174,7 @@ void main() {
       expect(find.byType(TutorialSpotlight), findsNothing);
 
       await tester.drag(
-        find.byType(DungeonBoard),
+        await movementPad(tester),
         Offset(-stepDistance * 1.1, 0),
       );
       await tester.pump();
@@ -181,6 +187,8 @@ void main() {
       await tester.pump();
       expect(_board(tester).selectedTile, const GridPosition(7, 1));
       expect(_board(tester).isSelected, isFalse);
+      await tester.tap(find.byKey(const ValueKey('inspect-action')));
+      await tester.pump();
       expect(find.text('Upstairs'), findsOneWidget);
       expect(find.text('Stairs leading to a higher floor.'), findsOneWidget);
       expect(_board(tester).floor.number, 0);
@@ -231,7 +239,12 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(320, 568));
       await tester.pump();
       await tester.pump();
-      expect(_shade(tester).contains(_gridRect(tester).center), isFalse);
+      expect(
+        _shade(
+          tester,
+        ).contains(tester.getCenter(find.byKey(const ValueKey('option-menu')))),
+        isFalse,
+      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },

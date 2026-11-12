@@ -168,7 +168,7 @@ sensibilidad del arrastre y de su cantidad de casillas por turno:
 | Ultra Fast | 0,05 s |
 
 `MovementSpeed.stepInterval` concentra los intervalos. `DungeonController` recibe
-`movementInterval` para leer el ajuste al confirmar una ruta y al reanudarla. El
+`playerMovementInterval` para leer el ajuste al confirmar una ruta y al reanudarla. El
 menú inferior permanece bloqueado durante el desplazamiento a cualquier velocidad.
 
 

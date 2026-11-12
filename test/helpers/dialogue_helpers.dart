@@ -69,7 +69,7 @@ Future<void> completeGuidedTutorial(WidgetTester tester) async {
   final stepDistance =
       math.max(tester.getSize(board).width / DungeonFloor.size, 16) *
       settings.dragDistanceMultiplier;
-  await tester.drag(board, Offset(stepDistance * 1.1, 0));
+  await tester.drag(await movementPad(tester), Offset(stepDistance * 1.1, 0));
   await tester.pump();
   await tester.tap(find.text('Confirm'));
   await tester.pump();
@@ -79,11 +79,25 @@ Future<void> completeGuidedTutorial(WidgetTester tester) async {
   expect(find.byKey(const ValueKey('tutorial-spotlight')), findsNothing);
 
   // Las pruebas de juego posteriores parten de la misma casilla y sin selección.
-  await tester.drag(board, Offset(-stepDistance * 1.1, 0));
+  await tester.drag(await movementPad(tester), Offset(-stepDistance * 1.1, 0));
   await tester.pump();
   await tester.tap(find.text('Confirm'));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));
+  await tester.tap(find.byKey(const ValueKey('inspect-action')));
+  await tester.pump();
   await tester.tap(find.text('Unselect'));
   await tester.pump();
+}
+
+Future<Finder> movementPad(WidgetTester tester) async {
+  if (find.byKey(const ValueKey('action-pad')).evaluate().isEmpty) {
+    if (find.byKey(const ValueKey('open-move-pad')).evaluate().isEmpty) {
+      await tester.tap(find.byKey(const ValueKey('player-portrait')));
+      await tester.pump();
+    }
+    await tester.tap(find.byKey(const ValueKey('open-move-pad')));
+    await tester.pump();
+  }
+  return find.byKey(const ValueKey('action-pad'));
 }

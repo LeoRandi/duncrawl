@@ -1,4 +1,4 @@
-enum ColorShard { red, gold, green, blue, lightBlue }
+enum ColorShard { red, gold, green, blue, lightBlue, orange }
 
 /// Cada fragmento se desbloquea por separado; repetir una recompensa es inocuo.
 class ShardProgress {

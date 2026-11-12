@@ -78,7 +78,7 @@ abstract final class OpeningTutorial {
         text: DungeonStrings.tutorialDrag,
         highlights: [
           TutorialHighlight(
-            target: DungeonTutorialTarget.grid,
+            target: DungeonTutorialTarget.menu,
             shape: TutorialHighlightShape.rectangle,
           ),
         ],
