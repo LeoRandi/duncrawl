@@ -7,7 +7,7 @@ enum DungeonTile { voidTile, floor, wall, water }
 
 enum GroundObjectType { stairsUp, grass, shallowWater }
 
-enum GroundObjectInteractionKind { generic, stairs, pickup }
+enum GroundObjectInteractionKind { generic, stairs, pickup, automatic }
 
 class DungeonGroundObject {
   final GroundObjectType type;
@@ -115,7 +115,10 @@ class DungeonFloorTemplate {
           spawn = position;
         }
         final enemy = switch (symbol) {
-          '1' || '2' || '3' => DungeonEnemy.bat(position),
+          '1' || '2' || '3' => DungeonEnemy.bat(
+            position,
+            id: 'floor:$number:enemy:$column:$row',
+          ),
           _ => null,
         };
         if (enemy != null) {
@@ -227,6 +230,67 @@ class DungeonFloor {
 
   bool contains(GridPosition position) => _contains(position);
 
+  DungeonEnemy? enemyById(String id) =>
+      enemies.where((enemy) => enemy.id == id).firstOrNull;
+
+  DungeonEnemy? enemyAt(GridPosition position) =>
+      enemies.where((enemy) => enemy.position == position).firstOrNull;
+
+  /// Añade un actor nuevo sin sustituir IDs conocidos ni ocupar destinos bloqueados.
+  DungeonFloor addEnemy(DungeonEnemy enemy) {
+    if (enemyById(enemy.id) != null ||
+        enemyAt(enemy.position) != null ||
+        !canEnter(enemy.position)) {
+      return this;
+    }
+
+    return DungeonFloor._(
+      number: number,
+      spawn: spawn,
+      tiles: _tiles,
+      groundObjects: groundObjects,
+      enemies: List.unmodifiable([...enemies, enemy]),
+    );
+  }
+
+  /// Sustituye un enemigo conocido; los destinos bloqueados no cambian la planta.
+  /// La ocupación del aventurero se valida en Dungeon.
+  DungeonFloor withEnemy(DungeonEnemy enemy) {
+    final previous = enemyById(enemy.id);
+    if (previous == null ||
+        identical(previous, enemy) ||
+        !canEnter(enemy.position) ||
+        enemies.any(
+          (other) => other.id != enemy.id && other.position == enemy.position,
+        )) {
+      return this;
+    }
+
+    return DungeonFloor._(
+      number: number,
+      spawn: spawn,
+      tiles: _tiles,
+      groundObjects: groundObjects,
+      enemies: List.unmodifiable([
+        for (final other in enemies) other.id == enemy.id ? enemy : other,
+      ]),
+    );
+  }
+
+  DungeonFloor removeEnemy(String id) {
+    if (enemyById(id) == null) {
+      return this;
+    }
+
+    return DungeonFloor._(
+      number: number,
+      spawn: spawn,
+      tiles: _tiles,
+      groundObjects: groundObjects,
+      enemies: List.unmodifiable(enemies.where((enemy) => enemy.id != id)),
+    );
+  }
+
   TileInspection? inspectTile(GridPosition position) =>
       inspectTileStack(position).firstOrNull;
 
@@ -284,6 +348,7 @@ class DungeonFloor {
     );
   }
 
+  /// Comprueba solo el terreno; Dungeon añade la ocupación de los actores.
   bool canEnter(GridPosition position) {
     if (!_contains(position)) {
       return false;

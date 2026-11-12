@@ -507,13 +507,14 @@ void main() {
     },
   );
 
-  testWidgets('The empty lower panel also accepts drag movement', (
-    tester,
-  ) async {
+  testWidgets('The movement footer also accepts drag movement', (tester) async {
     await _startGame(tester);
     final menu = find.byKey(const ValueKey('option-menu'));
 
-    await tester.drag(menu, const Offset(0, -100));
+    await tester.dragFrom(
+      tester.getBottomLeft(menu) + const Offset(40, -30),
+      const Offset(0, -100),
+    );
     await tester.pump();
 
     final board = tester.widget<DungeonBoard>(find.byType(DungeonBoard));

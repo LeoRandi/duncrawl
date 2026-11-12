@@ -14,82 +14,87 @@ import 'package:duncrawl/features/dungeon/presentation/selection_panel.dart';
 import 'package:duncrawl/features/dungeon/presentation/selection_stack_tab.dart';
 
 void main() {
-  testWidgets(
-    'Every other content gets a left-aligned tab with its relative layer',
-    (tester) async {
-      final rows = List<String>.of(floor0.rows);
-      rows[7] = rows[7].replaceRange(5, 6, '1');
-      final floor = DungeonFloorTemplate(
-        number: 9,
-        rows: rows,
-        groundObjects: const [
-          DungeonGroundObject.grass(GridPosition(5, 7)),
-          DungeonGroundObject.shallowWater(GridPosition(5, 7)),
-        ],
-      ).create();
-      final controller = DungeonController(Dungeon.start(floor));
-      addTearDown(controller.dispose);
-      controller.selectTile(const GridPosition(5, 7));
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: DungeonTheme.dark,
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: 320,
-                height: SelectionStackTab.extent,
-                child: ListenableBuilder(
-                  listenable: controller,
-                  builder: (context, child) =>
-                      SelectionStackTab(controller: controller),
-                ),
+  testWidgets('Turn and content tabs share one left-aligned row', (
+    tester,
+  ) async {
+    final rows = List<String>.of(floor0.rows);
+    rows[7] = rows[7].replaceRange(5, 6, '1');
+    final floor = DungeonFloorTemplate(
+      number: 9,
+      rows: rows,
+      groundObjects: const [
+        DungeonGroundObject.grass(GridPosition(5, 7)),
+        DungeonGroundObject.shallowWater(GridPosition(5, 7)),
+      ],
+    ).create();
+    final controller = DungeonController(Dungeon.start(floor));
+    addTearDown(controller.dispose);
+    controller.selectTile(const GridPosition(5, 7));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: DungeonTheme.dark,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 320,
+              height: SelectionStackTab.extent,
+              child: ListenableBuilder(
+                listenable: controller,
+                builder: (context, child) =>
+                    SelectionStackTab(controller: controller),
               ),
             ),
           ),
         ),
-      );
-      expect(find.byType(OutlinedButton), findsNWidgets(2));
-      expect(find.text('Over: Grass'), findsOneWidget);
-      expect(find.text('Over: Shallow Water'), findsOneWidget);
-      expect(
-        tester.getTopLeft(find.byKey(const ValueKey('selection-stack-tab'))).dx,
-        0,
-      );
-      await tester.ensureVisible(find.text('Over: Grass'));
-      await tester.pump();
-      await tester.tap(find.text('Over: Grass'));
-      await tester.pump();
-      expect(controller.inspectedTile?.object?.type, GroundObjectType.grass);
-      expect(find.text('Below: Bat'), findsOneWidget);
-      expect(find.text('Below: Shallow Water'), findsOneWidget);
-      await tester.ensureVisible(find.text('Below: Shallow Water'));
-      await tester.pump();
-      await tester.tap(find.text('Below: Shallow Water'));
-      await tester.pump();
-      expect(
-        controller.inspectedTile?.object?.type,
-        GroundObjectType.shallowWater,
-      );
-      expect(find.text('Below: Bat'), findsOneWidget);
-      expect(find.text('Over: Grass'), findsOneWidget);
-      final lock = Object();
-      controller.disableBottomMenu(lock);
-      await tester.pump();
-      await tester.ensureVisible(find.text('Below: Bat'));
-      await tester.pump();
-      await tester.tap(find.text('Below: Bat'));
-      await tester.pump();
-      expect(
-        controller.inspectedTile?.object?.type,
-        GroundObjectType.shallowWater,
-      );
-      controller.enableBottomMenu(lock);
-      controller.unselect();
-      await tester.pump();
-      expect(find.byType(OutlinedButton), findsNothing);
-    },
-  );
+      ),
+    );
+    expect(find.byType(OutlinedButton), findsNWidgets(2));
+    expect(find.text('Over: Grass'), findsOneWidget);
+    expect(find.text('Over: Shallow Water'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('combat-turn-tab'))).dx,
+      0,
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('selection-stack-tab'))).dx,
+      greaterThan(
+        tester.getTopRight(find.byKey(const ValueKey('combat-turn-tab'))).dx,
+      ),
+    );
+    await tester.ensureVisible(find.text('Over: Grass'));
+    await tester.pump();
+    await tester.tap(find.text('Over: Grass'));
+    await tester.pump();
+    expect(controller.inspectedTile?.object?.type, GroundObjectType.grass);
+    expect(find.text('Below: Bat'), findsOneWidget);
+    expect(find.text('Below: Shallow Water'), findsOneWidget);
+    await tester.ensureVisible(find.text('Below: Shallow Water'));
+    await tester.pump();
+    await tester.tap(find.text('Below: Shallow Water'));
+    await tester.pump();
+    expect(
+      controller.inspectedTile?.object?.type,
+      GroundObjectType.shallowWater,
+    );
+    expect(find.text('Below: Bat'), findsOneWidget);
+    expect(find.text('Over: Grass'), findsOneWidget);
+    final lock = Object();
+    controller.disableBottomMenu(lock);
+    await tester.pump();
+    await tester.ensureVisible(find.text('Below: Bat'));
+    await tester.pump();
+    await tester.tap(find.text('Below: Bat'));
+    await tester.pump();
+    expect(
+      controller.inspectedTile?.object?.type,
+      GroundObjectType.shallowWater,
+    );
+    controller.enableBottomMenu(lock);
+    controller.unselect();
+    await tester.pump();
+    expect(find.byType(OutlinedButton), findsNothing);
+  });
 
   test(
     'Inspecting below the adventurer cancels the plan and returns to the same actor',
@@ -353,7 +358,7 @@ Size _checkSharedPanel(WidgetTester tester) {
 DungeonFloor _floor({DungeonGroundObject? extra}) {
   final rows = List<String>.of(floor0.rows);
   rows[7] = rows[7].replaceRange(5, 6, '1');
-  return DungeonFloorTemplate(
+  var floor = DungeonFloorTemplate(
     number: 9,
     rows: rows,
     terrainOverlay: [
@@ -369,4 +374,8 @@ DungeonFloor _floor({DungeonGroundObject? extra}) {
       extra ?? const DungeonGroundObject.shallowWater(GridPosition(5, 7)),
     ],
   ).create();
+  for (final enemy in floor.enemies) {
+    floor = floor.withEnemy(enemy.copyWith(visionRadius: 0));
+  }
+  return floor;
 }

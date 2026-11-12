@@ -9,6 +9,8 @@ import '../domain/tile_inspection.dart';
 import 'movement_stat.dart';
 import 'selection_frame.dart';
 import 'tile_inspection_view.dart';
+import 'actor_stats_view.dart';
+import 'combat_controls.dart';
 
 class MovementMenu extends StatelessWidget {
   static const minimumHeight = 216.0;
@@ -17,6 +19,7 @@ class MovementMenu extends StatelessWidget {
   final bool enabled;
   final bool pulseConfirm;
   final bool allowStatHelp;
+  final VoidCallback? onReturnToMainMenu;
 
   const MovementMenu({
     super.key,
@@ -24,12 +27,15 @@ class MovementMenu extends StatelessWidget {
     this.enabled = true,
     this.pulseConfirm = false,
     this.allowStatHelp = false,
+    this.onReturnToMainMenu,
   });
 
   @override
   Widget build(BuildContext context) {
     return InteractionGate(
-      enabled: (enabled || allowStatHelp) && controller.isBottomMenuEnabled,
+      enabled:
+          controller.isDefeated ||
+          (enabled || allowStatHelp) && controller.isBottomMenuEnabled,
       child: Semantics(
         label: DungeonStrings.optionMenu,
         child: Container(
@@ -43,59 +49,95 @@ class MovementMenu extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(DungeonTheme.cornerRadius),
           ),
-          child: switch (controller.selectedInspection) {
-            final inspection? => TileInspectionView(
-              key: ValueKey((
-                inspection.position,
-                inspection.isAdventurer,
-                inspection.object,
-                inspection.enemy,
-              )),
-              inspection: inspection,
-              onUnselect: enabled && controller.isBottomMenuEnabled
-                  ? controller.unselect
-                  : null,
-              headerDetails: switch (inspection) {
-                _ when controller.isSelected => CharacterStatsView(
-                  level: controller.dungeon.adventurer.level,
-                  health: controller.dungeon.adventurer.health,
-                  maximumHealth: controller.dungeon.adventurer.maximumHealth,
-                ),
-                TileInspection(enemy: final enemy?) => CharacterStatsView(
-                  level: enemy.level,
-                  health: enemy.health,
-                  maximumHealth: enemy.maximumHealth,
-                ),
-                _ => null,
-              },
-              footer: switch (inspection) {
-                _ when controller.isSelected => _CharacterMovementActions(
-                  controller: controller,
-                  pulseConfirm: pulseConfirm,
-                ),
-                TileInspection(enemy: final enemy?) => MovementStat(
-                  normal: enemy.movementSpeed,
-                  combat: enemy.combatMovementSpeed,
-                  helpEnabled:
-                      (enabled || allowStatHelp) &&
-                      controller.isBottomMenuEnabled,
-                ),
-                _ => null,
-              },
-            ),
-            null => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(DungeonTheme.spacing),
-                child: Text(
-                  DungeonStrings.selectPrompt,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: DungeonColors.textDisabled,
+          child: Column(
+            children: [
+              Expanded(
+                child: switch (controller.selectedInspection) {
+                  final inspection? => TileInspectionView(
+                    key: ValueKey(
+                      inspection.actorId ??
+                          (
+                            inspection.position,
+                            inspection.object,
+                            inspection.tile,
+                          ),
+                    ),
+                    inspection: inspection,
+                    onUnselect: enabled && controller.isBottomMenuEnabled
+                        ? controller.unselect
+                        : null,
+                    headerDetails: switch (inspection) {
+                      _ when controller.isInCombat => null,
+                      _ when controller.isSelected => CharacterStatsView(
+                        level: controller.dungeon.adventurer.level,
+                        health: controller.dungeon.adventurer.health,
+                        maximumHealth:
+                            controller.dungeon.adventurer.maximumHealth,
+                      ),
+                      TileInspection(enemy: final enemy?) => CharacterStatsView(
+                        level: enemy.level,
+                        health: enemy.health,
+                        maximumHealth: enemy.maximumHealth,
+                      ),
+                      _ => null,
+                    },
+                    body: switch (controller.dungeon.actorById(
+                      inspection.actorId ?? '',
+                    )) {
+                      _ when controller.isInCombat => CombatControls(
+                        controller: controller,
+                      ),
+                      final actor? => ActorStatsView(
+                        actor: actor,
+                        showMovement:
+                            !inspection.isAdventurer || controller.isDefeated,
+                        helpEnabled:
+                            (enabled || allowStatHelp) &&
+                            controller.isBottomMenuEnabled,
+                      ),
+                      _ => null,
+                    },
+                    footer: switch (inspection) {
+                      _
+                          when controller.isSelected &&
+                              !controller.isInCombat &&
+                              !controller.isDefeated =>
+                        _CharacterMovementActions(
+                          controller: controller,
+                          pulseConfirm: pulseConfirm,
+                        ),
+                      _ => null,
+                    },
+                  ),
+                  null when controller.isInCombat => SingleChildScrollView(
+                    child: CombatControls(controller: controller),
+                  ),
+                  null => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(DungeonTheme.spacing),
+                      child: Text(
+                        DungeonStrings.selectPrompt,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: DungeonColors.textDisabled,
+                        ),
+                      ),
+                    ),
+                  ),
+                },
+              ),
+              if (controller.isDefeated) const Text(DungeonStrings.defeated),
+              if (controller.isDefeated && onReturnToMainMenu != null)
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: OutlinedButton(
+                    key: const ValueKey('defeat-main-menu'),
+                    onPressed: onReturnToMainMenu,
+                    child: const Text(DungeonStrings.mainMenu),
                   ),
                 ),
-              ),
-            ),
-          },
+            ],
+          ),
         ),
       ),
     );

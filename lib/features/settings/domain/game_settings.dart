@@ -12,6 +12,8 @@ class GameSettings {
   final bool skipTutorials;
   final bool autoClimbStairs;
   final bool autoPickUpItems;
+  final bool colorblindHate;
+  final bool floorZeroBats;
 
   const GameSettings({
     this.movementSensitivity = 4,
@@ -21,6 +23,8 @@ class GameSettings {
     this.skipTutorials = false,
     this.autoClimbStairs = true,
     this.autoPickUpItems = true,
+    this.colorblindHate = false,
+    this.floorZeroBats = false,
   }) : assert(movementSensitivity >= minimumMovementSensitivity),
        assert(movementSensitivity <= maximumMovementSensitivity);
 
@@ -37,6 +41,8 @@ class GameSettings {
     bool? skipTutorials,
     bool? autoClimbStairs,
     bool? autoPickUpItems,
+    bool? colorblindHate,
+    bool? floorZeroBats,
   }) => GameSettings(
     movementSensitivity: movementSensitivity ?? this.movementSensitivity,
     textSpeed: textSpeed ?? this.textSpeed,
@@ -46,5 +52,7 @@ class GameSettings {
     skipTutorials: skipTutorials ?? this.skipTutorials,
     autoClimbStairs: autoClimbStairs ?? this.autoClimbStairs,
     autoPickUpItems: autoPickUpItems ?? this.autoPickUpItems,
+    colorblindHate: colorblindHate ?? this.colorblindHate,
+    floorZeroBats: floorZeroBats ?? this.floorZeroBats,
   );
 }

@@ -21,7 +21,8 @@ class SelectionStackTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final alternatives = controller.alternateSelections;
-    if (alternatives.isEmpty) {
+    final encounter = controller.encounter;
+    if (alternatives.isEmpty && encounter == null) {
       return const SizedBox.shrink();
     }
     return Align(
@@ -31,6 +32,35 @@ class SelectionStackTab extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (encounter != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Container(
+                    key: const ValueKey('combat-turn-tab'),
+                    constraints: const BoxConstraints(minHeight: 30),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: DungeonColors.background,
+                      border: Border.all(color: DungeonColors.primary),
+                    ),
+                    child: Text(
+                      DungeonStrings.combatTurn(
+                        round: encounter.round,
+                        isPlayerTurn: controller.isPlayerTurn,
+                      ),
+                      key: const ValueKey('combat-turn'),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(height: 1.2),
+                    ),
+                  ),
+                ),
+              ),
             for (var index = 0; index < alternatives.length; index++)
               Padding(
                 padding: const EdgeInsets.only(right: 4),

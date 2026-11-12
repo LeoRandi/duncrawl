@@ -415,7 +415,10 @@ void main() {
       DungeonTutorialTarget.menu,
     );
     expect(find.text('Bat'), findsOneWidget);
-    expect(find.text(DungeonStrings.batDescription), findsOneWidget);
+    expect(find.text(DungeonStrings.batDescription), findsNothing);
+    expect(find.text('Strength'), findsOneWidget);
+    expect(find.text('Dexterity'), findsOneWidget);
+    expect(find.text('Special'), findsOneWidget);
     expect(find.text('Lv. 1'), findsOneWidget);
     expect(find.text('HP 3/3'), findsOneWidget);
     expect(find.text('5(3)'), findsOneWidget);

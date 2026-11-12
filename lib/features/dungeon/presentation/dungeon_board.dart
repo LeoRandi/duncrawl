@@ -5,6 +5,9 @@ import '../domain/dungeon_floor.dart';
 import '../domain/dungeon_enemy.dart';
 import '../domain/grid_position.dart';
 import '../domain/tile_inspection.dart';
+import '../domain/dungeon_visibility.dart';
+import '../domain/game_event.dart';
+import 'combat_impact.dart';
 import 'dungeon_strings.dart';
 import 'movement_preview.dart';
 import 'selection_frame.dart';
@@ -35,7 +38,12 @@ class DungeonBoard extends StatelessWidget {
   final ValueChanged<GridPosition>? onSelectTile;
   final GlobalKey? playerAnchorKey;
   final GlobalKey? stairsAnchorKey;
-  final Map<GridPosition, GlobalKey> enemyAnchorKeys;
+  final Map<String, GlobalKey> enemyAnchorKeys;
+  final Set<GridPosition> attackRange;
+  final Set<String> engagedEnemyIds;
+  final String? activeActorId;
+  final AttackResolved? lastAttack;
+  final int attackSequence;
 
   const DungeonBoard({
     super.key,
@@ -50,6 +58,11 @@ class DungeonBoard extends StatelessWidget {
     this.playerAnchorKey,
     this.stairsAnchorKey,
     this.enemyAnchorKeys = const {},
+    this.attackRange = const {},
+    this.engagedEnemyIds = const {},
+    this.activeActorId,
+    this.lastAttack,
+    this.attackSequence = 0,
   });
 
   @override
@@ -189,31 +202,51 @@ class DungeonBoard extends StatelessWidget {
                     for (final enemy in floor.enemies)
                       Positioned(
                         key:
-                            enemyAnchorKeys[enemy.position] ??
-                            ValueKey(('enemy', enemy.position)),
+                            enemyAnchorKeys[enemy.id] ??
+                            ValueKey(('enemy', enemy.id)),
                         left: enemy.position.column * tileSize,
                         top: enemy.position.row * tileSize,
                         width: tileSize,
                         height: tileSize,
                         child: Semantics(
                           button: true,
-                          selected: selectedInspection?.enemy == enemy,
+                          selected: selectedInspection?.actorId == enemy.id,
                           label: DungeonStrings.bat,
                           onTap: onSelectTile == null
                               ? null
                               : () => onSelectTile?.call(enemy.position),
-                          child: Padding(
-                            padding: const EdgeInsets.all(1),
-                            child: ColoredBox(
-                              color: DungeonColors.floorTile,
-                              child: switch (enemy.type) {
-                                EnemyType.bat => TileGlyph(
-                                  symbol: 'B',
-                                  label: DungeonStrings.bat,
-                                  color: ShardColors.bat.of(context),
-                                  fontSize: tileSize * 0.8,
-                                ),
-                              },
+                          child: SelectionFrame(
+                            selected: activeActorId == enemy.id,
+                            child: Padding(
+                              padding: const EdgeInsets.all(1),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  ColoredBox(
+                                    color: DungeonColors.floorTile,
+                                    child: switch (enemy.type) {
+                                      EnemyType.bat => TileGlyph(
+                                        symbol: 'B',
+                                        label: DungeonStrings.bat,
+                                        color: ShardColors.bat.of(context),
+                                        fontSize: tileSize * 0.8,
+                                      ),
+                                    },
+                                  ),
+                                  if (engagedEnemyIds.contains(enemy.id))
+                                    const Align(
+                                      alignment: Alignment.topRight,
+                                      child: Text(
+                                        '!',
+                                        textScaler: TextScaler.noScaling,
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          color: DungeonColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -256,14 +289,49 @@ class DungeonBoard extends StatelessWidget {
               ),
               _BoardLayer(
                 layer: DungeonLayer.aboveCharacters,
-                child: switch (selectedInspection?.enemy) {
-                  final enemy? => TileAreaOutline(
-                    key: const ValueKey('enemy-vision'),
-                    tiles: enemy.visionArea.where(floor.contains).toSet(),
-                    color: ShardColors.vision.of(context),
-                  ),
-                  null => const SizedBox.expand(),
-                },
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    for (final enemy in floor.enemies)
+                      if (!enemy.isDefeated &&
+                          engagedEnemyIds.contains(enemy.id))
+                        TileAreaOutline(
+                          key: ValueKey(('combat-vision', enemy.id)),
+                          tiles: DungeonVisibility.visibleArea(floor, enemy),
+                          color: ShardColors.vision.unlocked,
+                          pulseDuration: TileAreaOutline.combatPulseDuration,
+                        ),
+                    switch (selectedInspection?.enemy) {
+                      final enemy? when !engagedEnemyIds.contains(enemy.id) =>
+                        TileAreaOutline(
+                          key: const ValueKey('enemy-vision'),
+                          tiles: DungeonVisibility.visibleArea(floor, enemy),
+                          color: ShardColors.vision.of(context),
+                        ),
+                      _ => const SizedBox.expand(),
+                    },
+                    if (attackRange.isNotEmpty)
+                      TileAreaOutline(
+                        key: const ValueKey('attack-range'),
+                        tiles: attackRange,
+                        color: DungeonColors.primary,
+                      ),
+                    if (lastAttack case final attack?)
+                      Positioned(
+                        left:
+                            attack.targetPosition.column * tileSize -
+                            tileSize / 2,
+                        top:
+                            attack.targetPosition.row * tileSize - tileSize / 2,
+                        width: tileSize * 2,
+                        height: tileSize * 1.5,
+                        child: CombatImpact(
+                          key: ValueKey(('combat-impact', attackSequence)),
+                          damage: attack.damage,
+                        ),
+                      ),
+                  ],
+                ),
               ),
               const _BoardLayer(
                 layer: DungeonLayer.fogAndDarkness,

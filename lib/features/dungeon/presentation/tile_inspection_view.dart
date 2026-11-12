@@ -14,6 +14,7 @@ class TileInspectionView extends StatelessWidget {
   final VoidCallback? onUnselect;
   final Widget? headerDetails;
   final Widget? footer;
+  final Widget? body;
 
   const TileInspectionView({
     super.key,
@@ -21,6 +22,7 @@ class TileInspectionView extends StatelessWidget {
     required this.onUnselect,
     this.headerDetails,
     this.footer,
+    this.body,
   });
 
   @override
@@ -28,11 +30,12 @@ class TileInspectionView extends StatelessWidget {
     final content = InspectionContent.fromTile(inspection);
     return SelectionPanel(
       name: content.name,
-      description: content.description,
+      description: inspection.actorId == null ? content.description : null,
       note: content.note,
       onUnselect: onUnselect,
       headerDetails: headerDetails,
       footer: footer,
+      body: body,
       portraitBuilder: (size) => switch ((content.glyph, content.icon)) {
         (final glyph?, _) => TileGlyph(
           symbol: glyph,

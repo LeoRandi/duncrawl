@@ -53,7 +53,7 @@ void main() {
   );
 
   test('Bat vision includes thirteen tiles in a radius-two diamond', () {
-    const bat = DungeonEnemy.bat(GridPosition(7, 7));
+    const bat = DungeonEnemy.bat(GridPosition(7, 7), id: 'bat');
     expect(bat.visionRadius, 2);
     expect(bat.visionArea, hasLength(13));
     expect(

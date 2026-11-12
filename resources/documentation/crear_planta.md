@@ -67,8 +67,11 @@ nota adicional debajo.
 
 Los marcadores `1`, `2` y `3` solo se admiten en `rows`. Cada uno crea un
 `DungeonEnemy` de tipo `EnemyType.bat` en `DungeonFloor.enemies`, independiente
-de los objetos del suelo. Son marcadores estáticos de la capa de personajes, con
-una `B` gris; al inspeccionarlos aparecen el nombre Bat y su retrato.
+de los objetos del suelo. Cada uno recibe un ID estable basado en su planta y
+posición inicial; copiarlo o moverlo conserva ese ID. Ocupa su casilla y bloquea
+tanto la previsualización como la ejecución del movimiento de otros actores.
+Se representa en la capa de personajes con una `B` gris; al inspeccionarlo
+aparecen el nombre Bat y su retrato.
 Cada Bat tiene nivel 1, HP 3/3 y Movement `5(3)`: cinco casillas fuera de combate y
 tres en combate. Su descripción se configura en `DungeonStrings.batDescription`.
 El botón `(?)` de Movement usa `StatInfoButton`, una ayuda reutilizable que se cierra

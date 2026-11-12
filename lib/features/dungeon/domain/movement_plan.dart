@@ -5,20 +5,30 @@ import 'grid_position.dart';
 class MovementPlan {
   final Dungeon dungeon;
   final List<GridPosition> path;
+  final int? _movementBudget;
   final bool Function(GridPosition position)? additionalStop;
 
-  const MovementPlan.start(this.dungeon, {this.additionalStop})
-    : path = const [];
+  const MovementPlan.start(
+    this.dungeon, {
+    int? movementBudget,
+    this.additionalStop,
+  }) : assert(movementBudget == null || movementBudget >= 0),
+       _movementBudget = movementBudget,
+       path = const [];
 
   const MovementPlan._({
     required this.dungeon,
     required this.path,
+    required int? movementBudget,
     this.additionalStop,
-  });
+  }) : _movementBudget = movementBudget;
 
   GridPosition get destination => path.isEmpty ? dungeon.player : path.last;
 
-  int get remainingMovement => dungeon.adventurer.movementSpeed - path.length;
+  /// En combate, el llamador aporta el saldo del turno, no la velocidad completa.
+  int get movementBudget => _movementBudget ?? dungeon.adventurer.movementSpeed;
+
+  int get remainingMovement => movementBudget - path.length;
 
   /// Registra pasos válidos y deshace el último al volver sobre él.
   /// Los pasos bloqueados o que superan el presupuesto no alteran la ruta.
@@ -35,11 +45,15 @@ class MovementPlan {
         continue;
       }
       // Tras rechazar una interacción, se permite abandonar la casilla de origen.
-      if (updatedPath.length >= dungeon.adventurer.movementSpeed ||
+      if (updatedPath.length >= movementBudget ||
           (updatedPath.isNotEmpty &&
               (dungeon.floor.stopsMovementAt(current) ||
                   (additionalStop?.call(current) ?? false))) ||
-          !dungeon.floor.canEnter(next)) {
+          !dungeon.canStepFrom(
+            actorId: dungeon.adventurer.id,
+            from: current,
+            destination: next,
+          )) {
         break;
       }
       updatedPath.add(next);
@@ -52,6 +66,7 @@ class MovementPlan {
     return MovementPlan._(
       dungeon: dungeon,
       path: List.unmodifiable(updatedPath),
+      movementBudget: _movementBudget,
       additionalStop: additionalStop,
     );
   }

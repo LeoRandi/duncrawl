@@ -9,6 +9,7 @@ import '../../dungeon/presentation/dungeon_page.dart';
 import '../../dungeon/presentation/dungeon_strings.dart';
 import '../../settings/domain/game_settings.dart';
 import '../../settings/presentation/game_settings_dialog.dart';
+import '../../shards/presentation/shard_scope.dart';
 
 class MainMenuPage extends StatefulWidget {
   const MainMenuPage({super.key});
@@ -68,6 +69,7 @@ class _MainMenuPageState extends State<MainMenuPage> {
     }
 
     _settings.value = settings;
+    ShardScope.controllerOf(context)?.setUnlockAll(settings.colorblindHate);
   }
 
   @override

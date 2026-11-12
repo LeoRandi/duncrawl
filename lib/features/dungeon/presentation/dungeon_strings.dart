@@ -23,10 +23,9 @@ abstract final class DungeonStrings {
   static const movementHelp =
       'Walkable amount of tiles per turn outside of combat. When in combat, its always reduced by two, as shown in the parenthesys';
   static const dismissStatInfo = 'Dismiss stat information';
-  static const tutorialSelectBat =
-      'Select a Bat to see its description and stats.';
+  static const tutorialSelectBat = 'Select a Bat to see its stats.';
   static const tutorialBatStats =
-      'Here you can see its description, level, HP and Movement. Tap (?) beside Movement to learn what it means.';
+      'Here you can see its level, HP, Movement, Strength, Dexterity and Special. Tap (?) beside Movement to learn what it means.';
   static const wall = 'Wall';
   static const wallDescription = 'A solid wall that blocks movement.';
   static const skipTutorials = 'Skip tutorials';
@@ -40,6 +39,8 @@ abstract final class DungeonStrings {
   static const movementSensitivity = 'Movement sensitivity';
   static const autoClimbStairs = 'Auto-climb stairs';
   static const autoPickUpItems = 'Auto-pick-up items';
+  static const colorblindHate = 'colorblind hate';
+  static const floorZeroBats = 'Test bats on floor 0';
   static const climbStairsQuestion = 'Climb the stairs?';
   static const pickUpItemQuestion = 'Pick up this item?';
   static const activateObjectQuestion = 'Activate this object?';
@@ -64,6 +65,34 @@ abstract final class DungeonStrings {
   static const selectAdventurer = 'Select adventurer';
   static const selectPrompt = 'Select something to continue';
   static const movement = 'Movement';
+  static const strength = 'Strength';
+  static const dexterity = 'Dexterity';
+  static const special = 'Special';
+  static const move = 'Move';
+  static const attack = 'Attack';
+  static const strike = 'Strike';
+  static const cancel = 'Cancel';
+  static const endTurn = 'End turn';
+  static const chooseAttackTarget = 'Choose an adjacent enemy';
+  static const defeated = 'Defeated';
+  static const cancelRoute = 'Cancel movement preview';
+
+  static String combatTurn({required int round, required bool isPlayerTurn}) =>
+      'Round $round · ${isPlayerTurn ? 'Your turn' : 'Enemy turn'}';
+
+  static String turnAllowance({
+    required int movement,
+    required int total,
+    required bool actionAvailable,
+  }) => 'Move $movement/$total · Action ${actionAvailable ? '1/1' : '0/1'}';
+
+  static String attackFormula({
+    required int baseDamage,
+    required int strength,
+    required int damage,
+  }) => '$baseDamage + STR $strength = $damage damage';
+
+  static String damageTaken(int damage) => '$damage damage';
   static const tutorialSelect = 'Select your character to allow movement';
   static const tutorialDrag = 'Now try dragging around to move the character';
   static const tutorialStairs = 'Use the stairs to exit this floor';

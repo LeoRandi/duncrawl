@@ -8,6 +8,8 @@ import 'package:duncrawl/features/dungeon/domain/grid_position.dart';
 import 'package:duncrawl/features/tutorial/presentation/tutorial_spotlight.dart';
 import 'package:duncrawl/features/settings/domain/movement_speed.dart';
 import 'package:duncrawl/features/settings/domain/text_speed.dart';
+import 'package:duncrawl/features/shards/domain/shard_progress.dart';
+import 'package:duncrawl/features/shards/presentation/shard_scope.dart';
 import 'package:duncrawl/main.dart';
 
 import 'helpers/dialogue_helpers.dart';
@@ -202,12 +204,46 @@ void main() {
       await tester.pumpWidget(const DungeonCrawlerApp());
       await _openSettings(tester);
       expect(find.byType(Slider), findsNWidgets(3));
-      expect(find.byType(SwitchListTile), findsNWidgets(2));
+      expect(find.byType(SwitchListTile), findsNWidgets(4));
       await _toggleSetting(tester, 'auto-pick-up-items-switch');
+      await _toggleSetting(tester, 'colorblind-hate-switch');
+      await _toggleSetting(tester, 'floor-zero-bats-switch');
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
     }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Testing settings apply on Done and reach the first floor', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const DungeonCrawlerApp());
+    await _openSettings(tester);
+    expect(_switch(tester, 'colorblind-hate-switch').value, isFalse);
+    expect(_switch(tester, 'floor-zero-bats-switch').value, isFalse);
+    await _toggleSetting(tester, 'colorblind-hate-switch');
+    await _toggleSetting(tester, 'floor-zero-bats-switch');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await _openSettings(tester);
+    expect(_switch(tester, 'colorblind-hate-switch').value, isFalse);
+    expect(_switch(tester, 'floor-zero-bats-switch').value, isFalse);
+    await _toggleSetting(tester, 'colorblind-hate-switch');
+    await _toggleSetting(tester, 'floor-zero-bats-switch');
+    expect(find.text('colorblind hate'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Start'));
+    await tester.pumpAndSettle();
+    final board = tester.widget<DungeonBoard>(find.byType(DungeonBoard));
+    expect(board.floor.number, 0);
+    expect(board.floor.enemies.map((enemy) => enemy.position).toSet(), {
+      const GridPosition(11, 12),
+      const GridPosition(12, 12),
+    });
+    final context = tester.element(find.byType(DungeonPage));
+    expect(ShardScope.progressOf(context).unlocked, ColorShard.values.toSet());
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

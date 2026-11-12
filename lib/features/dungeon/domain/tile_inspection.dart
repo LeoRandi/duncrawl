@@ -8,20 +8,29 @@ class TileInspection {
   final DungeonTile tile;
   final DungeonGroundObject? object;
   final DungeonEnemy? enemy;
-  final bool isAdventurer;
+  final String? adventurerId;
 
   const TileInspection({
     required this.position,
     required this.tile,
     this.object,
     this.enemy,
-    this.isAdventurer = false,
-  });
+    this.adventurerId,
+  }) : assert(enemy == null || adventurerId == null);
 
-  bool hasSameTarget(TileInspection other) =>
-      position == other.position &&
-      isAdventurer == other.isAdventurer &&
-      identical(enemy, other.enemy) &&
-      identical(object, other.object) &&
-      tile == other.tile;
+  bool get isAdventurer => adventurerId != null;
+
+  String? get actorId => adventurerId ?? enemy?.id;
+
+  bool hasSameTarget(TileInspection other) {
+    final id = actorId;
+    if (id != null) {
+      return id == other.actorId;
+    }
+
+    return other.actorId == null &&
+        position == other.position &&
+        identical(object, other.object) &&
+        tile == other.tile;
+  }
 }

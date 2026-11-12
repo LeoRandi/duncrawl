@@ -6,22 +6,34 @@ import '../../settings/domain/movement_speed.dart';
 
 import '../domain/dungeon.dart';
 import '../domain/dungeon_floor.dart';
+import '../domain/encounter_state.dart';
+import '../domain/enemy_tactics.dart';
+import '../domain/game_command.dart';
+import '../domain/game_event.dart';
+import '../domain/game_rules.dart';
+import '../domain/game_state.dart';
+import '../domain/game_transition.dart';
 import '../domain/floor_change_request.dart';
 import '../domain/grid_position.dart';
 import '../domain/ground_object_interaction_context.dart';
 import '../domain/ground_object_interaction_request.dart';
 import '../domain/movement_plan.dart';
 import '../domain/tile_inspection.dart';
+import '../floors/floor_zero_test_bats.dart';
 
 enum MovementPhase { idle, dragging, awaitingConfirmation, moving }
 
 class DungeonController extends ChangeNotifier {
   static final stepDuration = MovementSpeed.defaultSpeed.stepInterval;
   static final _movementMenuLock = Object();
+  static const _rules = GameRules();
+  static const _enemyTactics = EnemyTactics();
 
   final Set<Object> _bottomMenuLocks = {};
   final Duration Function() _movementInterval;
-  Dungeon _dungeon;
+  GameState _state;
+  bool _floorZeroBats;
+  Dungeon get _dungeon => _state.dungeon;
   late MovementPlan _plan = _newPlan();
   final bool Function(InteractiveDungeonGroundObject object)
   _requiresConfirmation;
@@ -29,6 +41,15 @@ class DungeonController extends ChangeNotifier {
   GroundObjectInteractionRequest? _pendingInteraction;
   MovementPhase _phase = MovementPhase.idle;
   Timer? _movementTimer;
+  Timer? _enemyTimer;
+  Timer? _presentationTimer;
+  bool _isPresenting = false;
+  bool _isDisposed = false;
+  bool _isTargetingAttack = false;
+  String? _attackTargetId;
+  GameEvent? _lastCombatEvent;
+  AttackResolved? _lastAttack;
+  int _attackSequence = 0;
   int _nextStep = 0;
   TileInspection? _selection;
   List<TileInspection> _selectionStack = const [];
@@ -37,10 +58,15 @@ class DungeonController extends ChangeNotifier {
   FloorChangeRequest? _pendingFloorChange;
 
   DungeonController(
-    this._dungeon, {
+    Dungeon dungeon, {
     Duration Function()? movementInterval,
     bool Function(InteractiveDungeonGroundObject object)? requiresConfirmation,
-  }) : _movementInterval = movementInterval ?? _defaultMovementInterval,
+    bool floorZeroBats = false,
+  }) : _state = GameState(
+         dungeon: FloorZeroTestBats.apply(dungeon, enabled: floorZeroBats),
+       ),
+       _floorZeroBats = floorZeroBats,
+       _movementInterval = movementInterval ?? _defaultMovementInterval,
        _requiresConfirmation =
            requiresConfirmation ?? _defaultConfirmationPolicy {
     _interactAtPlayer();
@@ -54,17 +80,62 @@ class DungeonController extends ChangeNotifier {
 
   MovementPlan _newPlan() => MovementPlan.start(
     _dungeon,
+    movementBudget: _movementBudget,
     additionalStop: (position) => _dungeon.floor
         .interactiveObjectsAt(position)
         .any(_requiresConfirmation),
   );
 
+  int? get _movementBudget {
+    if (!isInCombat) {
+      return null;
+    }
+    return isPlayerTurn ? encounter?.remainingMovement : 0;
+  }
+
   Dungeon get dungeon => _dungeon;
+  GameState get gameState => _state;
+  EncounterState? get encounter => _state.encounter;
+  bool get isInCombat => _state.mode == GameMode.combat;
+  bool get isDefeated => _state.mode == GameMode.defeated;
+  bool get isPlayerTurn => _state.isPlayerTurn;
+  bool get isEnemyTurn => isInCombat && !isPlayerTurn;
+  bool get isTargetingAttack => _isTargetingAttack;
+  String? get attackTargetId => _attackTargetId;
+  GameEvent? get lastCombatEvent => _lastCombatEvent;
+  AttackResolved? get lastAttack => _lastAttack;
+  int get attackSequence => _attackSequence;
+  bool get canAttack =>
+      isInCombat &&
+      isPlayerTurn &&
+      encounter?.actionAvailable == true &&
+      isBottomMenuEnabled &&
+      !isMoving;
+  bool get canStrike {
+    final targetId = _attackTargetId;
+    return canAttack &&
+        targetId != null &&
+        _rules.canAttack(
+          _state,
+          actorId: _dungeon.adventurer.id,
+          targetId: targetId,
+        );
+  }
+
+  bool get canEndTurn => isPlayerTurn && isBottomMenuEnabled && !isMoving;
+  Set<GridPosition> get attackRange => _isTargetingAttack
+      ? {
+          for (final direction in DungeonDirection.values)
+            if (_dungeon.floor.contains(direction.stepFrom(_dungeon.player)))
+              direction.stepFrom(_dungeon.player),
+        }
+      : const {};
   MovementPlan get plan => _plan;
   MovementPhase get phase => _phase;
   bool get isMoving => _phase == MovementPhase.moving;
   bool get canConfirm =>
       isSelected &&
+      !_isTargetingAttack &&
       isBottomMenuEnabled &&
       _plan.path.isNotEmpty &&
       (_phase == MovementPhase.dragging ||
@@ -98,6 +169,9 @@ class DungeonController extends ChangeNotifier {
   bool get isPaused => _isPaused;
   bool get isBottomMenuEnabled =>
       !_isPaused &&
+      !_isPresenting &&
+      !isEnemyTurn &&
+      !isDefeated &&
       _pendingFloorChange == null &&
       _pendingInteraction == null &&
       _bottomMenuLocks.isEmpty;
@@ -107,7 +181,8 @@ class DungeonController extends ChangeNotifier {
 
   bool completeFloorChange(DungeonFloor floor) {
     final request = _pendingFloorChange;
-    if (isMoving ||
+    if (_state.mode != GameMode.exploration ||
+        isMoving ||
         _pendingInteraction != null ||
         request == null ||
         request.floorNumber != floor.number ||
@@ -116,7 +191,14 @@ class DungeonController extends ChangeNotifier {
       return false;
     }
 
-    _dungeon = _dungeon.enterFloor(floor);
+    _state = GameState(
+      dungeon: FloorZeroTestBats.apply(
+        _dungeon.enterFloor(floor),
+        enabled: _floorZeroBats,
+      ),
+    );
+    _lastCombatEvent = null;
+    _lastAttack = null;
     _pendingFloorChange = null;
     _interactionQueue.clear();
     _phase = MovementPhase.idle;
@@ -131,7 +213,10 @@ class DungeonController extends ChangeNotifier {
   /// Permite activar el mismo comportamiento desde menús, toques u otras acciones.
   /// Los objetos retirados, de otra planta o durante una acción bloqueada se ignoran.
   bool interactWith(InteractiveDungeonGroundObject object) {
-    if (!isBottomMenuEnabled || isMoving || _isInteracting) {
+    if (_state.mode != GameMode.exploration ||
+        !isBottomMenuEnabled ||
+        isMoving ||
+        _isInteracting) {
       return false;
     }
     if (!_invokeInteraction(object, GroundObjectTrigger.activated)) {
@@ -139,16 +224,33 @@ class DungeonController extends ChangeNotifier {
     }
 
     _phase = MovementPhase.idle;
+    _refreshCombat();
     _plan = _newPlan();
     notifyListeners();
     return true;
   }
 
   bool _interactAtPlayer() {
+    final wasInCombat = isInCombat;
+    var stopsMovement = false;
     final objects = _dungeon.floor
         .interactiveObjectsAt(_dungeon.player)
         .toList();
     for (final object in objects) {
+      if (object.interactionKind == GroundObjectInteractionKind.automatic) {
+        if (_invokeInteraction(object, GroundObjectTrigger.enteredTile)) {
+          stopsMovement = stopsMovement || object.stopsMovement;
+        }
+        continue;
+      }
+      if (_interactionQueue.any(
+        (request) =>
+            identical(request.object, object) &&
+            request.floorNumber == _dungeon.floor.number &&
+            request.playerPosition == _dungeon.player,
+      )) {
+        continue;
+      }
       _interactionQueue.add(
         GroundObjectInteractionRequest(
           object: object,
@@ -158,10 +260,17 @@ class DungeonController extends ChangeNotifier {
         ),
       );
     }
-    return _resolveInteractionQueue();
+    _refreshCombat();
+    if (isInCombat || isDefeated) {
+      return stopsMovement || !wasInCombat || isDefeated;
+    }
+    return _resolveInteractionQueue() || stopsMovement;
   }
 
   bool _resolveInteractionQueue() {
+    if (_state.mode != GameMode.exploration) {
+      return false;
+    }
     var stopsMovement = false;
     while (_interactionQueue.isNotEmpty) {
       final request = _interactionQueue.first;
@@ -176,6 +285,10 @@ class DungeonController extends ChangeNotifier {
       _interactionQueue.removeFirst();
       if (_invokeInteraction(request.object, request.trigger)) {
         stopsMovement = stopsMovement || request.object.stopsMovement;
+      }
+      _refreshCombat();
+      if (_state.mode != GameMode.exploration) {
+        return true;
       }
     }
     return stopsMovement || _pendingFloorChange != null;
@@ -194,6 +307,7 @@ class DungeonController extends ChangeNotifier {
     if (accept && request.isValidFor(_dungeon)) {
       _invokeInteraction(request.object, request.trigger);
     }
+    _refreshCombat();
     _resolveInteractionQueue();
     _phase = MovementPhase.idle;
     _plan = _newPlan();
@@ -233,7 +347,7 @@ class DungeonController extends ChangeNotifier {
         'Interactions must request scene changes instead of moving the player directly.',
       );
     }
-    _dungeon = dungeon;
+    _state = _state.withDungeon(dungeon);
     final selection = _refreshSelection(_selection);
     _selection = selection;
     _selectionStack = selection == null
@@ -245,13 +359,25 @@ class DungeonController extends ChangeNotifier {
     if (previous == null) {
       return null;
     }
+
+    final actorId = previous.actorId;
+    final position = actorId == null
+        ? previous.position
+        : _dungeon.positionOf(actorId);
+    if (position == null) {
+      return null;
+    }
+
     return _dungeon
-        .selectionStackAt(previous.position)
+        .selectionStackAt(position)
         .where(previous.hasSameTarget)
         .firstOrNull;
   }
 
   void _requestFloorChange(int floorNumber) {
+    if (_state.mode != GameMode.exploration) {
+      return;
+    }
     _pendingFloorChange ??= FloorChangeRequest(
       floorNumber: floorNumber,
       sourceFloorNumber: _dungeon.floor.number,
@@ -279,9 +405,11 @@ class DungeonController extends ChangeNotifier {
   }
 
   void selectCharacter() {
-    if (isSelected || !_canSelect) {
+    if (!_canSelect) {
       return;
     }
+    _isTargetingAttack = false;
+    _attackTargetId = null;
 
     _selectPosition(_dungeon.player);
   }
@@ -289,6 +417,20 @@ class DungeonController extends ChangeNotifier {
   /// Selecciona lo visible sin activar objetos; una casilla vacía limpia la selección.
   void selectTile(GridPosition position) {
     if (!_canSelect || !_dungeon.floor.contains(position)) {
+      return;
+    }
+    if (_isTargetingAttack) {
+      final target = _dungeon.actorAt(position);
+      if (target != null &&
+          _rules.canAttack(
+            _state,
+            actorId: _dungeon.adventurer.id,
+            targetId: target.id,
+          )) {
+        _attackTargetId = target.id;
+        _setSelectionPair(_dungeon.selectionStackAt(position));
+        notifyListeners();
+      }
       return;
     }
     if (position == _dungeon.player) {
@@ -356,6 +498,10 @@ class DungeonController extends ChangeNotifier {
     _isPaused = true;
     _movementTimer?.cancel();
     _movementTimer = null;
+    _enemyTimer?.cancel();
+    _enemyTimer = null;
+    _presentationTimer?.cancel();
+    _presentationTimer = null;
     notifyListeners();
   }
 
@@ -366,6 +512,11 @@ class DungeonController extends ChangeNotifier {
     _isPaused = false;
     if (isMoving) {
       _movementTimer = Timer.periodic(_movementInterval(), (_) => _advance());
+    }
+    if (_isPresenting) {
+      _schedulePresentationEnd();
+    } else {
+      _startEnemyTurns();
     }
     notifyListeners();
   }
@@ -379,7 +530,7 @@ class DungeonController extends ChangeNotifier {
   }
 
   void beginDrag() {
-    if (!isSelected || !isBottomMenuEnabled || isMoving) {
+    if (!isSelected || !isBottomMenuEnabled || isMoving || _isTargetingAttack) {
       return;
     }
 
@@ -443,24 +594,202 @@ class DungeonController extends ChangeNotifier {
   }
 
   void _advance() {
-    _dungeon = _dungeon.stepTo(_plan.path[_nextStep]);
+    final transition = _rules.resolve(
+      _state,
+      MoveActor(
+        actorId: _dungeon.adventurer.id,
+        destination: _plan.path[_nextStep],
+      ),
+    );
+    if (!transition.accepted) {
+      _finishMovement();
+      return;
+    }
+
+    _recordTransition(transition);
+    if (!isInCombat) {
+      _lastCombatEvent = null;
+    }
     _setSelectionPair(_dungeon.selectionStackAt(_dungeon.player));
     _nextStep++;
     final interactionStopsMovement = _interactAtPlayer();
     if (_nextStep == _plan.path.length || interactionStopsMovement) {
-      _movementTimer?.cancel();
-      _movementTimer = null;
-      _phase = MovementPhase.idle;
-      _plan = _newPlan();
-      enableBottomMenu(_movementMenuLock);
+      _finishMovement();
       return;
     }
     notifyListeners();
   }
 
+  void _finishMovement() {
+    _movementTimer?.cancel();
+    _movementTimer = null;
+    _phase = MovementPhase.idle;
+    _nextStep = 0;
+    _plan = _newPlan();
+    enableBottomMenu(_movementMenuLock);
+  }
+
+  void beginAttack() {
+    if (!canAttack) {
+      return;
+    }
+    _phase = MovementPhase.idle;
+    _plan = _newPlan();
+    _isTargetingAttack = true;
+    _attackTargetId = null;
+    _setSelectionPair(_dungeon.selectionStackAt(_dungeon.player));
+    notifyListeners();
+  }
+
+  void setFloorZeroBats(bool enabled) {
+    if (_floorZeroBats == enabled) {
+      return;
+    }
+    _floorZeroBats = enabled;
+    final wasInCombat = isInCombat;
+    _state = _state.withDungeon(
+      FloorZeroTestBats.apply(_dungeon, enabled: enabled),
+    );
+    _refreshCombat();
+    if (!wasInCombat && isInCombat && isMoving) {
+      _finishMovement();
+    }
+    if (!isMoving) {
+      _plan = _newPlan();
+    }
+    if (!isEnemyTurn) {
+      _enemyTimer?.cancel();
+      _enemyTimer = null;
+    }
+    notifyListeners();
+  }
+
+  void cancelAttack() {
+    if (!_canSelect) {
+      return;
+    }
+    _isTargetingAttack = false;
+    _attackTargetId = null;
+    notifyListeners();
+  }
+
+  void strike() {
+    final targetId = _attackTargetId;
+    if (!canStrike || targetId == null) {
+      return;
+    }
+    final transition = _rules.resolve(
+      _state,
+      AttackActor(actorId: _dungeon.adventurer.id, targetId: targetId),
+    );
+    if (!transition.accepted) {
+      return;
+    }
+    _isTargetingAttack = false;
+    _attackTargetId = null;
+    _recordTransition(transition);
+    _plan = _newPlan();
+    _isPresenting = true;
+    _schedulePresentationEnd();
+    notifyListeners();
+  }
+
+  void endTurn() {
+    if (!canEndTurn) {
+      return;
+    }
+    _isTargetingAttack = false;
+    _attackTargetId = null;
+    _phase = MovementPhase.idle;
+    _recordTransition(
+      _rules.resolve(_state, EndActorTurn(_dungeon.adventurer.id)),
+    );
+    _plan = _newPlan();
+    _startEnemyTurns();
+    notifyListeners();
+  }
+
+  void _schedulePresentationEnd() {
+    _presentationTimer?.cancel();
+    _presentationTimer = Timer(_movementInterval(), () {
+      if (_isDisposed || _isPaused) {
+        return;
+      }
+      _presentationTimer = null;
+      _isPresenting = false;
+      _resolveInteractionQueue();
+      _startEnemyTurns();
+      notifyListeners();
+    });
+  }
+
+  void _startEnemyTurns() {
+    if (!isEnemyTurn || _isPaused || _isPresenting || _enemyTimer != null) {
+      return;
+    }
+    _enemyTimer = Timer.periodic(_movementInterval(), (_) => _advanceEnemy());
+  }
+
+  void _advanceEnemy() {
+    if (_isDisposed || _isPaused) {
+      return;
+    }
+    _refreshCombat();
+    final command = _enemyTactics.nextCommand(_state);
+    if (command != null) {
+      _recordTransition(_rules.resolve(_state, command));
+      _refreshCombat();
+    }
+    if (!isEnemyTurn) {
+      _enemyTimer?.cancel();
+      _enemyTimer = null;
+      _resolveInteractionQueue();
+    }
+    _plan = _newPlan();
+    notifyListeners();
+  }
+
+  void _refreshCombat() => _recordTransition(_rules.refresh(_state));
+
+  void _recordTransition(GameTransition transition) {
+    final wasInCombat = isInCombat;
+    _state = transition.state;
+    for (final event in transition.events) {
+      if (event is AttackResolved) {
+        _lastAttack = event;
+        _attackSequence++;
+      }
+      if (event is AttackResolved ||
+          event is EncounterStarted ||
+          event is EncounterWon ||
+          event is ActorDefeated && event.actorId == _dungeon.adventurer.id) {
+        _lastCombatEvent = event;
+      }
+    }
+    if ((!wasInCombat && isInCombat) || isDefeated) {
+      _pendingFloorChange = null;
+      _pendingInteraction = null;
+      _isTargetingAttack = false;
+      _attackTargetId = null;
+      _setSelectionPair(_dungeon.selectionStackAt(_dungeon.player));
+    } else {
+      final selection = _refreshSelection(_selection);
+      _selection = selection;
+      _selectionStack = selection == null
+          ? const []
+          : _dungeon.selectionStackAt(selection.position);
+    }
+    if (isDefeated) {
+      _interactionQueue.clear();
+    }
+  }
+
   @override
   void dispose() {
+    _isDisposed = true;
     _movementTimer?.cancel();
+    _enemyTimer?.cancel();
+    _presentationTimer?.cancel();
     super.dispose();
   }
 }

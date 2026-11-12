@@ -6,10 +6,18 @@ import '../domain/grid_position.dart';
 
 /// Traza solo el perímetro exterior; los bordes interiores nunca se dibujan.
 class TileAreaOutline extends StatefulWidget {
+  static const combatPulseDuration = Duration(seconds: 6);
+
   final Set<GridPosition> tiles;
   final Color color;
+  final Duration pulseDuration;
 
-  const TileAreaOutline({super.key, required this.tiles, required this.color});
+  const TileAreaOutline({
+    super.key,
+    required this.tiles,
+    required this.color,
+    this.pulseDuration = const Duration(milliseconds: 700),
+  });
 
   @override
   State<TileAreaOutline> createState() => _TileAreaOutlineState();
@@ -19,8 +27,17 @@ class _TileAreaOutlineState extends State<TileAreaOutline>
     with SingleTickerProviderStateMixin {
   late final _pulse = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 700),
+    duration: widget.pulseDuration,
   )..repeat(reverse: true);
+
+  @override
+  void didUpdateWidget(TileAreaOutline oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pulseDuration != widget.pulseDuration) {
+      _pulse.duration = widget.pulseDuration;
+      _pulse.repeat(reverse: true);
+    }
+  }
 
   @override
   void dispose() {

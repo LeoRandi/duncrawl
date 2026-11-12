@@ -138,6 +138,24 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
                 _settings = _settings.copyWith(autoPickUpItems: value);
               }),
             ),
+            SwitchListTile(
+              key: const ValueKey('colorblind-hate-switch'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text(DungeonStrings.colorblindHate),
+              value: _settings.colorblindHate,
+              onChanged: (value) => setState(() {
+                _settings = _settings.copyWith(colorblindHate: value);
+              }),
+            ),
+            SwitchListTile(
+              key: const ValueKey('floor-zero-bats-switch'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text(DungeonStrings.floorZeroBats),
+              value: _settings.floorZeroBats,
+              onChanged: (value) => setState(() {
+                _settings = _settings.copyWith(floorZeroBats: value);
+              }),
+            ),
           ],
         ),
       ),

@@ -13,4 +13,8 @@ class ShardProgress {
   ShardProgress unlock(ColorShard shard) => contains(shard)
       ? this
       : ShardProgress._(Set.unmodifiable({...unlocked, shard}));
+
+  ShardProgress unlockAll() => unlocked.length == ColorShard.values.length
+      ? this
+      : ShardProgress._(Set.unmodifiable(ColorShard.values));
 }

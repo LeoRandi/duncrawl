@@ -80,7 +80,7 @@ void main() {
   );
 
   testWidgets(
-    'Shallow Water uses two colours and Bat selection shows its description and stats',
+    'Shallow Water keeps its description and Bat selection shows only visible stats',
     (tester) async {
       final controller = DungeonController(Dungeon.start(floor2.create()));
       addTearDown(controller.dispose);
@@ -175,9 +175,13 @@ void main() {
         );
         expect(
           find.byKey(const ValueKey('selection-description')),
-          findsOneWidget,
+          findsNothing,
         );
-        expect(find.text(DungeonStrings.batDescription), findsOneWidget);
+        expect(find.text(DungeonStrings.batDescription), findsNothing);
+        expect(find.text('Strength'), findsOneWidget);
+        expect(find.text('Dexterity'), findsOneWidget);
+        expect(find.text('Special'), findsOneWidget);
+        expect(find.text('Vision range'), findsNothing);
         expect(find.text('Lv. 1'), findsOneWidget);
         expect(find.text('HP 3/3'), findsOneWidget);
         expect(find.text('5(3)'), findsOneWidget);

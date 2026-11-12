@@ -40,6 +40,7 @@ import '../../tutorial/presentation/tutorial_spotlight.dart';
 class DungeonPage extends StatefulWidget {
   final ValueNotifier<GameSettings> settings;
   final GlobalKey? playerAnchorKey;
+  final Dungeon? initialDungeon;
 
   /// Se completa cuando la transición de entrada descubre toda la escena.
   final Future<void>? entryTransition;
@@ -48,6 +49,7 @@ class DungeonPage extends StatefulWidget {
     super.key,
     required this.settings,
     this.playerAnchorKey,
+    this.initialDungeon,
     this.entryTransition,
   });
 
@@ -57,17 +59,22 @@ class DungeonPage extends StatefulWidget {
 
 class _DungeonPageState extends State<DungeonPage> {
   final _drag = CardinalDrag();
+  late final _initialFloorNumber = widget.initialDungeon?.floor.number ?? 0;
   late final _controller = DungeonController(
-    Dungeon.start(floor0.create()),
+    widget.initialDungeon ?? Dungeon.start(floor0.create()),
     requiresConfirmation: _requiresInteractionConfirmation,
     movementInterval: () => widget.settings.value.movementSpeed.stepInterval,
+    floorZeroBats: widget.settings.value.floorZeroBats,
   );
   late final _tutorial = TutorialController(
-    OpeningTutorial.guide,
-    isEnabled: !widget.settings.value.skipTutorials,
+    dungeonTutorials[_initialFloorNumber]?.guide ?? OpeningTutorial.guide,
+    isEnabled:
+        !widget.settings.value.skipTutorials &&
+        dungeonTutorials.containsKey(_initialFloorNumber),
   );
-  DungeonTutorialLesson? _activeLesson = dungeonTutorials[0];
-  final _visitedTutorialFloors = <int>{0};
+  late DungeonTutorialLesson? _activeLesson =
+      dungeonTutorials[_initialFloorNumber];
+  late final _visitedTutorialFloors = <int>{_initialFloorNumber};
   late final _playerAnchorKey =
       widget.playerAnchorKey ??
       GlobalKey(debugLabel: 'player-transition-anchor');
@@ -99,6 +106,7 @@ class _DungeonPageState extends State<DungeonPage> {
     InteractiveDungeonGroundObject object,
   ) => switch (object.interactionKind) {
     GroundObjectInteractionKind.generic => false,
+    GroundObjectInteractionKind.automatic => false,
     GroundObjectInteractionKind.stairs =>
       !widget.settings.value.autoClimbStairs,
     GroundObjectInteractionKind.pickup =>
@@ -120,6 +128,7 @@ class _DungeonPageState extends State<DungeonPage> {
     if (!mounted || _isLeaving) {
       return;
     }
+    _onSettingsChanged();
     _scheduleActiveLesson();
   }
 
@@ -155,6 +164,10 @@ class _DungeonPageState extends State<DungeonPage> {
   }
 
   void _onSettingsChanged() {
+    ShardScope.controllerOf(
+      context,
+    )?.setUnlockAll(widget.settings.value.colorblindHate);
+    _controller.setFloorZeroBats(widget.settings.value.floorZeroBats);
     if (widget.settings.value.skipTutorials) {
       _grantSkippedRewards(dungeonTutorials[_controller.dungeon.floor.number]);
       _tutorialTimer?.cancel();
@@ -498,11 +511,11 @@ class _DungeonPageState extends State<DungeonPage> {
                             Expanded(
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
+                                  const menuHeight = MovementMenu.minimumHeight;
                                   // En pantallas bajas y anchas, el panel va al lado para conservar ambos.
                                   final sideMenu =
                                       constraints.maxWidth >= 480 &&
-                                      constraints.maxHeight <
-                                          MovementMenu.minimumHeight * 2;
+                                      constraints.maxHeight < menuHeight * 2;
                                   final verticalBoardSize = math.min(
                                     constraints.maxWidth,
                                     math.min(
@@ -510,7 +523,7 @@ class _DungeonPageState extends State<DungeonPage> {
                                       math.max(
                                         0.0,
                                         constraints.maxHeight -
-                                            MovementMenu.minimumHeight -
+                                            menuHeight -
                                             SelectionStackTab.extent,
                                       ),
                                     ),
@@ -596,6 +609,21 @@ class _DungeonPageState extends State<DungeonPage> {
                                                   _controller.selectedPosition,
                                               selectedInspection: _controller
                                                   .selectedInspection,
+                                              attackRange:
+                                                  _controller.attackRange,
+                                              lastAttack:
+                                                  _controller.lastAttack,
+                                              attackSequence:
+                                                  _controller.attackSequence,
+                                              engagedEnemyIds:
+                                                  _controller
+                                                      .encounter
+                                                      ?.enemyIds
+                                                      .toSet() ??
+                                                  const {},
+                                              activeActorId: _controller
+                                                  .encounter
+                                                  ?.activeActorId,
                                               onSelectTile: _selectTile,
                                               onSelectPlayer:
                                                   _tutorial.allows(
@@ -609,7 +637,7 @@ class _DungeonPageState extends State<DungeonPage> {
                                               enemyAnchorKeys: {
                                                 if (_tutorialBat
                                                     case final bat?)
-                                                  bat.position: _batAnchorKey,
+                                                  bat.id: _batAnchorKey,
                                               },
                                             ),
                                           ),
@@ -648,6 +676,15 @@ class _DungeonPageState extends State<DungeonPage> {
                                                   child: MovementMenu(
                                                     key: _movementMenuKey,
                                                     controller: _controller,
+                                                    onReturnToMainMenu: () {
+                                                      unawaited(
+                                                        _returnToMainMenu(
+                                                          IrisTransition.centerOf(
+                                                            _playerAnchorKey,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
                                                     enabled: _tutorial.allows(
                                                       DungeonTutorialControl
                                                           .confirm,

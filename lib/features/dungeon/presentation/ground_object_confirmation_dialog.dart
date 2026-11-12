@@ -52,7 +52,8 @@ class _GroundObjectConfirmationDialogState
     final question = switch (widget.interactionKind) {
       GroundObjectInteractionKind.stairs => DungeonStrings.climbStairsQuestion,
       GroundObjectInteractionKind.pickup => DungeonStrings.pickUpItemQuestion,
-      GroundObjectInteractionKind.generic =>
+      GroundObjectInteractionKind.generic ||
+      GroundObjectInteractionKind.automatic =>
         DungeonStrings.activateObjectQuestion,
     };
     return AlertDialog(

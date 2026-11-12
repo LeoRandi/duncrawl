@@ -11,6 +11,7 @@ class SelectionPanel extends StatelessWidget {
   final Widget Function(double size) portraitBuilder;
   final Widget? headerDetails;
   final Widget? footer;
+  final Widget? body;
   final VoidCallback? onUnselect;
 
   const SelectionPanel({
@@ -22,6 +23,7 @@ class SelectionPanel extends StatelessWidget {
     this.note,
     this.headerDetails,
     this.footer,
+    this.body,
   });
 
   @override
@@ -38,59 +40,71 @@ class SelectionPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Row(
-                    key: const ValueKey('selection-info'),
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SelectionPortrait(
-                        key: const ValueKey('selection-portrait'),
-                        size: portraitSize,
-                        label: name,
-                        child: portraitBuilder(portraitSize * 2 / 3),
-                      ),
-                      if (headerDetails case final details?) ...[
-                        const SizedBox(width: DungeonTheme.spacing),
-                        Flexible(child: details),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: DungeonTheme.spacing),
-                SizedBox(
-                  height: portraitSize,
-                  child: OutlinedButton(
-                    key: const ValueKey('unselect-selection'),
-                    onPressed: onUnselect,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: Size(0, portraitSize),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      textStyle: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
-                    ),
-                    child: const Text(DungeonStrings.unselect),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: DungeonTheme.spacing),
             Expanded(
               child: SingleChildScrollView(
                 key: ValueKey(('selection-body', name)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            key: const ValueKey('selection-info'),
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SelectionPortrait(
+                                key: const ValueKey('selection-portrait'),
+                                size: portraitSize,
+                                label: name,
+                                child: portraitBuilder(portraitSize * 2 / 3),
+                              ),
+                              if (headerDetails case final details?) ...[
+                                const SizedBox(width: DungeonTheme.spacing),
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.topLeft,
+                                    child: details,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: DungeonTheme.spacing),
+                        SizedBox(
+                          height: portraitSize,
+                          child: OutlinedButton(
+                            key: const ValueKey('unselect-selection'),
+                            onPressed: onUnselect,
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: Size(0, portraitSize),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              textStyle: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                              ),
+                            ),
+                            child: const Text(DungeonStrings.unselect),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: DungeonTheme.spacing),
                     ShardText(
                       name,
                       key: const ValueKey('selection-name'),
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
+                    if (body case final stats?) ...[
+                      const SizedBox(height: DungeonTheme.spacing),
+                      stats,
+                    ],
                     if (description case final text?) ...[
                       const SizedBox(height: DungeonTheme.spacing),
                       ShardText(

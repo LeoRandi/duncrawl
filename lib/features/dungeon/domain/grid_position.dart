@@ -4,8 +4,10 @@ class GridPosition {
 
   const GridPosition(this.column, this.row);
 
-  bool isAdjacentTo(GridPosition other) =>
-      (column - other.column).abs() + (row - other.row).abs() == 1;
+  int distanceTo(GridPosition other) =>
+      (column - other.column).abs() + (row - other.row).abs();
+
+  bool isAdjacentTo(GridPosition other) => distanceTo(other) == 1;
 
   @override
   bool operator ==(Object other) =>
